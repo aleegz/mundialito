@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AddParticipantsForm } from "./participants-form";
 import { DeleteParticipantButton } from "./delete-participant-button";
+import { AddItemsForm } from "./items-form";
+import { DeleteItemButton } from "./delete-item-button";
 
 type Params = Promise<{ id: string }>;
 
@@ -90,7 +92,41 @@ export default async function MundialitoPage({ params }: { params: Params }) {
 
       <section style={{ marginTop: "2rem" }}>
         <h2>Items ({items?.length ?? 0})</h2>
-        <p style={{ color: "#888" }}>Proximamente.</p>
+
+        <AddItemsForm
+          mundialitoId={id}
+          isDraft={mundialito.status === "DRAFT"}
+        />
+
+        {items?.length ? (
+          <ul style={{ listStyle: "none", padding: 0 }}>
+            {items.map((i) => (
+              <li
+                key={i.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0.5rem 0",
+                  borderBottom: "1px solid #eee",
+                }}
+              >
+                <span>
+                  {i.name}
+                  {i.description && (
+                    <small style={{ color: "#888" }}> — {i.description}</small>
+                  )}
+                </span>
+
+                {isOwner && mundialito.status === "DRAFT" && (
+                  <DeleteItemButton itemId={i.id} name={i.name} />
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p style={{ color: "#888" }}>Todavía no hay items.</p>
+        )}
       </section>
 
       <p style={{ marginTop: "2rem" }}>
