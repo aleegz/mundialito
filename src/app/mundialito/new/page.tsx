@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type SearchParams = Promise<{ error?: string }>;
 
-export default async function NuevoMundialitoPage({
+export default async function NewMundialitoPage({
   searchParams,
 }: {
   searchParams: SearchParams;

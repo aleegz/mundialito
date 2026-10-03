@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { AddParticipantsForm } from "./participants-form";
+import { DeleteParticipantButton } from "./delete-participant-button";
 
 type Params = Promise<{ id: string }>;
 
@@ -45,13 +48,37 @@ export default async function MundialitoPage({ params }: { params: Params }) {
 
       <section style={{ marginTop: "2rem" }}>
         <h2>Participantes ({participants?.length ?? 0})</h2>
+
+        <AddParticipantsForm
+          mundialitoId={id}
+          isDraft={mundialito.status === "DRAFT"}
+        />
+
         {participants?.length ? (
-          <ul>
+          <ul style={{ listStyle: "none", padding: 0 }}>
             {participants.map((p) => (
-              <li key={p.id}>
-                {p.display_name}
-                {!p.auth_user_id && (
-                  <small style={{ color: "#888" }}> (sin cuenta)</small>
+              <li
+                key={p.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0.5rem 0",
+                  borderBottom: "1px solid #eee",
+                }}
+              >
+                <span>
+                  {p.display_name}
+                  {!p.auth_user_id && (
+                    <small style={{ color: "#888" }}> (sin cuenta)</small>
+                  )}
+                </span>
+
+                {isOwner && mundialito.status === "DRAFT" && (
+                  <DeleteParticipantButton
+                    participantId={p.id}
+                    displayName={p.display_name}
+                  />
                 )}
               </li>
             ))}
@@ -63,16 +90,12 @@ export default async function MundialitoPage({ params }: { params: Params }) {
 
       <section style={{ marginTop: "2rem" }}>
         <h2>Items ({items?.length ?? 0})</h2>
-        {items?.length ? (
-          <ul>
-            {items.map((i) => (
-              <li key={i.id}>{i.name}</li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ color: "#888" }}>Todavía no hay items.</p>
-        )}
+        <p style={{ color: "#888" }}>Proximamente.</p>
       </section>
+
+      <p style={{ marginTop: "2rem" }}>
+        <Link href="/">Volver</Link>
+      </p>
     </main>
   );
 }
