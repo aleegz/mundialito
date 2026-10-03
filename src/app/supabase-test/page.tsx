@@ -1,15 +1,15 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from "@/lib/supabase/server";
 
 export default async function SupabaseTestPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
   const {
     data: { session },
     error,
-  } = await supabase.auth.getSession()
+  } = await supabase.auth.getSession();
 
   return (
-    <main style={{ padding: '2rem', fontFamily: 'monospace' }}>
+    <main style={{ padding: "2rem", fontFamily: "monospace" }}>
       <h1>Supabase Connection Test</h1>
       <pre>
         {JSON.stringify(
@@ -19,11 +19,11 @@ export default async function SupabaseTestPage() {
             hasSession: !!session,
           },
           null,
-          2
+          2,
         )}
       </pre>
-      {!error && <p>✅ Conexión exitosa con Supabase</p>}
-      {error && <p>❌ Falló la conexión: {error.message}</p>}
+      {!error && <p>OK: conexion exitosa</p>}
+      {error && <p>ERROR: {error.message}</p>}
     </main>
-  )
+  );
 }
