@@ -61,6 +61,10 @@ export default async function HomePage() {
       </section>
 
       <p style={{ marginTop: "2rem" }}>
+        <Link href="/mundialito/nuevo">Crear un nuevo Mundialito</Link>
+      </p>
+
+      <p>
         <Link href="/rls-test">Ver test de RLS</Link>
       </p>
     </main>
