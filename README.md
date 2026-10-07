@@ -123,7 +123,9 @@ Persona que participa en un Mundialito.
 | `name` | Nombre |
 | `userId` | Usuario asociado, opcional inicialmente |
 
-La aplicación debe permitir participar sin obligar a crear una cuenta durante las primeras versiones.
+La participación no requiere crear una cuenta: quien recibe el enlace ingresa, elige su nombre de la lista de participantes y vota sin iniciar sesión.
+
+El propietario también puede votar una vez iniciada la votación, registrando su puntuación como cualquier otro participante.
 
 ### Ítem
 
@@ -176,6 +178,8 @@ Las estadísticas más avanzadas se implementarán posteriormente.
 
 ### Propietario
 
+El propietario utiliza una cuenta (Supabase Authentication) para administrar su Mundialito.
+
 El propietario de un Mundialito puede:
 
 - Crear Mundialitos.
@@ -184,23 +188,26 @@ El propietario de un Mundialito puede:
 - Agregar y eliminar ítems.
 - Iniciar la votación.
 - Finalizar el Mundialito.
+- Votar una vez iniciada la votación, como un participante más.
 - Consultar resultados.
 
 ### Participante
 
-Un participante puede:
+Un participante no necesita cuenta ni inicio de sesión. Puede:
 
-- Ingresar al Mundialito.
-- Identificarse como participante.
-- Votar.
+- Ingresar al Mundialito mediante el enlace compartido (o su QR).
+- Identificarse eligiendo su nombre de la lista de participantes.
+- Votar (del 1 al 10) cuando la votación esté activa.
 - Modificar su voto mientras la votación esté abierta.
 - Consultar los resultados cuando corresponda.
 
-La seguridad real de estos permisos debe implementarse mediante Supabase RLS y no depender únicamente del frontend.
+Un participante nunca tiene permisos de administración: no puede crear, editar ni eliminar el Mundialito, sus participantes o sus ítems, y no puede iniciar ni finalizar la votación.
+
+La seguridad real de los permisos de administración debe implementarse mediante Supabase Row Level Security (RLS) y no depender únicamente del frontend. Las reglas críticas de votación (solo votar con la votación activa y máximo un voto por participante e ítem) también se garantizan en la base de datos, incluso tratándose de votantes sin sesión.
 
 ## 🔗 Participación
 
-La aplicación debe permitir compartir un Mundialito mediante un enlace.
+La aplicación debe permitir compartir un Mundialito mediante un enlace o un QR (el QR simplemente codifica el mismo enlace).
 
 Ejemplo conceptual:
 
@@ -208,9 +215,10 @@ Ejemplo conceptual:
 /mundialito/abc123
 ```
 
+El enlace es abierto: cualquiera que lo reciba puede ingresar, elegir su nombre de la lista y votar. Esto prioriza la simplicidad sobre la integridad técnica del voto y asume confianza entre los participantes. Es una decisión aceptada para el MVP.
+
 Posteriormente se pueden agregar:
 
-- QR.
 - Código corto.
 - Invitaciones.
 - Deep links.
@@ -238,13 +246,13 @@ Mundialito creado
 ### Participar
 
 ```text
-Abrir enlace
+Abrir enlace o QR (sin login)
   ↓
-Seleccionar participante
+Elegir tu nombre en la lista
   ↓
-Ver ítems
+Puntuar cada ítem (1-10)
   ↓
-Puntuar cada ítem
+Modificar puntajes mientras esté abierto
   ↓
 Confirmar votación
 ```
@@ -270,6 +278,7 @@ La primera versión debe contener únicamente:
 - Agregar participantes.
 - Agregar ítems.
 - Compartir mediante URL.
+- Participar sin iniciar sesión mediante el enlace.
 - Registrar puntuaciones.
 - Modificar puntuaciones.
 - Finalizar la votación.
@@ -538,7 +547,7 @@ El MVP se considera terminado cuando:
 - Puede agregar participantes.
 - Puede agregar ítems.
 - Puede compartir el Mundialito.
-- Los participantes pueden votar desde sus celulares.
+- Los participantes pueden votar desde sus celulares, sin crear una cuenta.
 - Cada participante puede modificar su voto mientras esté permitido.
 - El sistema calcula correctamente los resultados.
 - El ranking se muestra correctamente.
