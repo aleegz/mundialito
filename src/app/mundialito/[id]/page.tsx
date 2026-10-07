@@ -6,6 +6,8 @@ import { DeleteParticipantButton } from "./delete-participant-button";
 import { AddItemsForm } from "./items-form";
 import { DeleteItemButton } from "./delete-item-button";
 import { StatusActions } from "./status-actions";
+import { EditMundialitoForm } from "./edit-mundialito-form";
+import { ShareLinks } from "./share-links";
 
 type Params = Promise<{ id: string }>;
 
@@ -52,13 +54,27 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         <StatusActions mundialitoId={id} status={mundialito.status} />
       )}
 
-      {mundialito.status === "ACTIVE" && (
+      {(mundialito.status === "ACTIVE" || mundialito.status === "FINISHED") && (
         <p style={{ marginTop: "0.5rem" }}>
-          <Link href={`/vote/${id}`}>Ir a votar →</Link>
+          <Link href={`/vote/${id}`}>
+            {mundialito.status === "ACTIVE" ? "Ir a votar →" : "Ver resultados →"}
+          </Link>
         </p>
       )}
 
-      {mundialito.description && <p>{mundialito.description}</p>}
+      {isOwner && mundialito.status === "DRAFT" && (
+        <EditMundialitoForm
+          mundialitoId={id}
+          initialName={mundialito.name}
+          initialDescription={mundialito.description ?? null}
+        />
+      )}
+
+      {isOwner && mundialito.status === "ACTIVE" && (
+        <ShareLinks mundialitoId={id} />
+      )}
+
+      {mundialito.description && !isOwner && <p>{mundialito.description}</p>}
 
       <section style={{ marginTop: "2rem" }}>
         <h2>Participantes ({participants?.length ?? 0})</h2>

@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/validation/uuid";
+import {
+  calculateItemRanking,
+  calculateOverallRanking,
+  validateScore,
+  type VoteRow,
+} from "@/lib/calculations/ranking";
 
 type Mundialito = {
   id: string;
@@ -44,6 +50,17 @@ function storageKey(mundialitoId: string): string {
   return `mundialito-vote-participant:${mundialitoId}`;
 }
 
+/**
+ * Spanish-friendly average for the results view: two decimals with a
+ * comma, and an em dash when there is no data behind it.
+ */
+function formatAverage(average: number): string {
+  if (Number.isNaN(average)) {
+    return "—";
+  }
+  return average.toFixed(2).replace(".", ",");
+}
+
 async function fetchExistingVotes(
   mundialitoId: string,
   participantId: string,
@@ -76,6 +93,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [scores, setScores] = useState<Scores>({});
+  const [votes, setVotes] = useState<VoteRow[]>([]);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +133,42 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       }
 
       if (data.status === "FINISHED") {
+        // Results view: anon read of the full dataset (RLS allows
+        // SELECT on ACTIVE/FINISHED). Derived data is never persisted —
+        // rankings are recalculated on every render.
+        const [participantsResult, itemsResult, votesResult] =
+          await Promise.all([
+            supabase
+              .from("participants")
+              .select("id, display_name")
+              .eq("mundialito_id", mundialitoId)
+              .order("display_name", { ascending: true }),
+            supabase
+              .from("items")
+              .select("id, name, description")
+              .eq("mundialito_id", mundialitoId)
+              .order("created_at", { ascending: true }),
+            supabase
+              .from("votes")
+              .select("participant_id, item_id, score")
+              .eq("mundialito_id", mundialitoId),
+          ]);
+
+        if (cancelled) return;
+
+        if (
+          participantsResult.error ||
+          itemsResult.error ||
+          votesResult.error
+        ) {
+          setPhase("loaderror");
+          return;
+        }
+
         setMundialito(data);
+        setParticipants(participantsResult.data ?? []);
+        setItems(itemsResult.data ?? []);
+        setVotes(votesResult.data ?? []);
         setPhase("finished");
         return;
       }
@@ -205,7 +258,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       score: scores[item.id],
     }));
 
-    if (ballot.length === 0 || ballot.some((s) => !Number.isInteger(s.score))) {
+    if (ballot.length === 0 || ballot.some((entry) => !validateScore(entry.score))) {
       return;
     }
 
@@ -279,13 +332,104 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   }
 
   if (phase === "finished") {
+    const itemRankings = calculateItemRanking(votes);
+    const overallRanking = calculateOverallRanking(votes);
+
+    const nameOf = (participantId: string): string =>
+      participants.find((p) => p.id === participantId)?.display_name ??
+      "Participante";
+
+    // Rows arrive ordered by position; break ties alphabetically so
+    // shared positions render in a stable, readable order.
+    const overallSorted = [...overallRanking].sort(
+      (a, b) =>
+        a.position - b.position ||
+        nameOf(a.participantId).localeCompare(nameOf(b.participantId)),
+    );
+
     return (
       <section>
-        <h1>{mundialito?.name ?? "Mundialito"}</h1>
+        <h1>Resultados — {mundialito?.name ?? "Mundialito"}</h1>
+        {mundialito?.description && (
+          <p style={mutedStyle}>{mundialito.description}</p>
+        )}
         <p style={{ ...mutedStyle, fontWeight: 600 }}>
-          La votación ya finalizó.
+          La votación finalizó. No se pueden modificar más los votos.
         </p>
-        <p style={mutedStyle}>No se pueden modificar más los votos.</p>
+
+        <h2 style={resultsHeadingStyle}>Por ítem</h2>
+
+        {items.length === 0 ? (
+          <p style={mutedStyle}>No hay ítems para mostrar.</p>
+        ) : (
+          <div style={{ display: "grid", gap: "1.25rem" }}>
+            {items.map((item, index) => {
+              const rows = [...(itemRankings.get(item.id) ?? [])].sort(
+                (a, b) =>
+                  a.position - b.position ||
+                  nameOf(a.participantId).localeCompare(
+                    nameOf(b.participantId),
+                  ),
+              );
+
+              return (
+                <div key={item.id}>
+                  <div style={{ fontWeight: 700 }}>
+                    {index + 1}. {item.name}
+                  </div>
+                  {item.description && (
+                    <div style={{ ...mutedStyle, fontSize: "0.85rem" }}>
+                      {item.description}
+                    </div>
+                  )}
+
+                  {rows.length === 0 ? (
+                    <p style={{ ...mutedStyle, marginTop: "0.35rem" }}>
+                      Este ítem no recibió votos.
+                    </p>
+                  ) : (
+                    <ul style={resultListStyle}>
+                      {rows.map((row) => (
+                        <li key={row.participantId} style={resultRowStyle}>
+                          <div style={resultRowHeaderStyle}>
+                            <span style={positionStyle}>{row.position}.</span>
+                            <span>{nameOf(row.participantId)}</span>
+                          </div>
+                          <div style={resultStatsStyle}>
+                            Promedio {formatAverage(row.average)} · Mín{" "}
+                            {row.min} · Máx {row.max} · {row.voteCount}{" "}
+                            {row.voteCount === 1 ? "voto" : "votos"}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <h2 style={resultsHeadingStyle}>Ranking general</h2>
+
+        {overallSorted.length === 0 ? (
+          <p style={mutedStyle}>Todavía no hay votos registrados.</p>
+        ) : (
+          <ol style={resultListStyle}>
+            {overallSorted.map((row) => (
+              <li key={row.participantId} style={resultRowStyle}>
+                <div style={resultRowHeaderStyle}>
+                  <span style={positionStyle}>{row.position}.</span>
+                  <span>{nameOf(row.participantId)}</span>
+                </div>
+                <div style={resultStatsStyle}>
+                  Promedio {formatAverage(row.average)} · Total {row.total} ·{" "}
+                  {row.voteCount} {row.voteCount === 1 ? "voto" : "votos"}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
     );
   }
@@ -493,4 +637,43 @@ const linkButtonStyle: React.CSSProperties = {
   textDecoration: "underline",
   cursor: "pointer",
   font: "inherit",
+};
+
+const resultsHeadingStyle: React.CSSProperties = {
+  fontSize: "1.15rem",
+  marginTop: "2rem",
+  marginBottom: "0.75rem",
+};
+
+const resultListStyle: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+  display: "grid",
+  gap: "0.5rem",
+};
+
+const resultRowStyle: React.CSSProperties = {
+  border: "1px solid #ccc",
+  borderRadius: "0.5rem",
+  padding: "0.65rem 0.85rem",
+  background: "white",
+};
+
+const resultRowHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: "0.5rem",
+  fontWeight: 600,
+};
+
+const positionStyle: React.CSSProperties = {
+  minWidth: "1.75rem",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const resultStatsStyle: React.CSSProperties = {
+  ...mutedStyle,
+  fontSize: "0.85rem",
+  marginTop: "0.15rem",
 };

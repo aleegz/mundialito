@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/uuid";
 
-type RequestBody = {
+type PatchRequestBody = {
   status?: unknown;
+};
+
+type PutRequestBody = {
+  name?: unknown;
+  description?: unknown;
 };
 
 const TRANSITIONS = {
@@ -32,7 +37,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No encontrado." }, { status: 404 });
   }
 
-  let body: RequestBody;
+  let body: PatchRequestBody;
 
   try {
     body = await request.json();
@@ -178,4 +183,129 @@ export async function PATCH(
   }
 
   return NextResponse.json({ updated: true, status: target });
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+
+  // Id malformado = mismo 404 que un id inexistente (sin oraculo).
+  if (!isUuid(id)) {
+    return NextResponse.json({ error: "No encontrado." }, { status: 404 });
+  }
+
+  let body: PutRequestBody;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Cuerpo invalido." }, { status: 400 });
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+  }
+
+  const { data: mundialito, error: readError } = await supabase
+    .from("mundialitos")
+    .select("status, owner_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (readError) {
+    return NextResponse.json(
+      { error: "No se pudo leer el Mundialito." },
+      { status: 400 },
+    );
+  }
+
+  // 0 filas = no existe o RLS no deja leerla -> mismo 404.
+  if (!mundialito) {
+    return NextResponse.json({ error: "No encontrado." }, { status: 404 });
+  }
+
+  // Solo el owner puede editar. Si no es owner -> 403.
+  if (mundialito.owner_id !== user.id) {
+    return NextResponse.json(
+      { error: "Solo el owner puede editar el Mundialito." },
+      { status: 403 },
+    );
+  }
+
+  // Solo se permite editar cuando esta en DRAFT.
+  if (mundialito.status !== "DRAFT") {
+    return NextResponse.json(
+      {
+        error: "Solo se puede editar el Mundialito mientras está en estado DRAFT.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const rawName = body.name;
+  const rawDescription = body.description;
+
+  // Validacion espejo de create: name requerido, trimmed no vacio, mismo maximo (100)
+  if (typeof rawName !== "string") {
+    return NextResponse.json(
+      { error: "El nombre es obligatorio." },
+      { status: 400 },
+    );
+  }
+
+  const name = rawName.trim();
+  if (name.length === 0) {
+    return NextResponse.json(
+      { error: "El nombre es obligatorio." },
+      { status: 400 },
+    );
+  }
+
+  if (name.length > 100) {
+    return NextResponse.json(
+      { error: "El nombre es demasiado largo." },
+      { status: 400 },
+    );
+  }
+
+  let description: string | null = null;
+  if (rawDescription !== null && rawDescription !== undefined) {
+    if (typeof rawDescription !== "string") {
+      description = null;
+    } else {
+      const trimmed = rawDescription.trim();
+      description = trimmed === "" ? null : trimmed;
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("mundialitos")
+    .update({ name, description })
+    .eq("id", id)
+    .eq("owner_id", user.id);
+
+  if (updateError) {
+    if (updateError.code === "42501") {
+      return NextResponse.json(
+        { error: "No tenés permiso para editar el Mundialito." },
+        { status: 403 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "No se pudo actualizar el Mundialito." },
+      { status: 400 },
+    );
+  }
+
+  return NextResponse.json({ updated: true });
 }
