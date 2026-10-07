@@ -5,6 +5,7 @@ import { AddParticipantsForm } from "./participants-form";
 import { DeleteParticipantButton } from "./delete-participant-button";
 import { AddItemsForm } from "./items-form";
 import { DeleteItemButton } from "./delete-item-button";
+import { StatusActions } from "./status-actions";
 
 type Params = Promise<{ id: string }>;
 
@@ -46,6 +47,17 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         Estado: <strong>{mundialito.status}</strong>
         {!isOwner && " (no sos owner)"}
       </p>
+
+      {isOwner && (
+        <StatusActions mundialitoId={id} status={mundialito.status} />
+      )}
+
+      {mundialito.status === "ACTIVE" && (
+        <p style={{ marginTop: "0.5rem" }}>
+          <Link href={`/vote/${id}`}>Ir a votar →</Link>
+        </p>
+      )}
+
       {mundialito.description && <p>{mundialito.description}</p>}
 
       <section style={{ marginTop: "2rem" }}>

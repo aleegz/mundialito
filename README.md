@@ -212,7 +212,7 @@ La aplicación debe permitir compartir un Mundialito mediante un enlace o un QR 
 Ejemplo conceptual:
 
 ```text
-/mundialito/abc123
+/vote/abc123
 ```
 
 El enlace es abierto: cualquiera que lo reciba puede ingresar, elegir su nombre de la lista y votar. Esto prioriza la simplicidad sobre la integridad técnica del voto y asume confianza entre los participantes. Es una decisión aceptada para el MVP.

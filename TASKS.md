@@ -27,14 +27,23 @@ Al completar una tarea: marcar `- [x]`, agregar la fecha y una nota breve si hub
 
 ## Fase 2 — Participación sin login (Opción A) + owner votante
 
-- [ ] **6.** Migración RLS para votos sin sesión: adaptar policies de `votes` (hoy exigen `authenticated`) para permitir INSERT/UPDATE de votantes anónimos **validando en BD**: mundialito en `ACTIVE` y máximo un voto por `(participantId, itemId)` (la PK compuesta ya lo respalda).
-- [ ] **7.** Proxy (`src/proxy.ts`): dejar la ruta pública de participación fuera de `protectedRoutes` — si no, el link abierto manda al votante al login.
-- [ ] **8.** Ruta de participación pública (link abierto tipo `/mundialito/[id]` o similar): muestra los ítems y permite identificarse.
-- [ ] **9.** Transiciones de status: `DRAFT → ACTIVE → FINISHED`, solo owner (Server Action o `PATCH /api/mundialitos/[id]`) + botones en `src/app/mundialito/[id]/page.tsx`.
-- [ ] **10.** Elegir nombre: pantalla para seleccionar un participante de la lista predefinida (identidad del votante para la sesión de voto).
-- [ ] **11.** API de votos: `POST`/`PUT` con upsert por PK compuesta `(participantId, itemId)`, score validado 1-10.
-- [ ] **12.** Pantalla de votación mobile-first: puntuar cada ítem del 1 al 10, modificar puntajes mientras esté `ACTIVE`, confirmar.
-- [ ] **13.** Owner votante: una vez en `ACTIVE`, el owner puede votar como un participante más (sin privilegios sobre su voto).
+- [x] **6.** Migración RLS para votos sin sesión: adaptar policies de `votes` (hoy exigen `authenticated`) para permitir INSERT/UPDATE de votantes anónimos **validando en BD**: mundialito en `ACTIVE` y máximo un voto por `(participantId, itemId)` (la PK compuesta ya lo respalda). — ✅ 2026-10-07. `supabase/migrations/003_public_voting_rls.sql`: helper `can_vote_in_mundialito` (SECURITY DEFINER: mismo mundialito + ACTIVE), policies `TO anon, authenticated` sin binding de identidad, SELECT anon solo ACTIVE/FINISHED, grants espejo de 002, idempotente. `002_rls.sql` intacto (diff vacío). **✅ APLICADA 2026-10-07 vía SQL editor + verificada en vivo por la suite funcional.**
+- [x] **7.** Proxy (`src/proxy.ts`): dejar la ruta pública de participación fuera de `protectedRoutes` — si no, el link abierto manda al votante al login. — ✅ 2026-10-07. Sin cambios necesarios: `/vote/*` nunca estuvo protegido; `/mundialito` sigue en `protectedRoutes` (verificado).
+- [x] **8.** Ruta de participación pública (link abierto tipo `/mundialito/[id]` o similar): muestra los ítems y permite identificarse. — ✅ 2026-10-07. `/vote/[mundialitoId]` (page + vote-client). NOTA aceptada: un anónimo en DRAFT ve "no encontrado" — consistente con el principio sin oráculo (no puede distinguir DRAFT de inexistente); el mensaje "aún no comenzó" queda para el owner logueado.
+- [x] **9.** Transiciones de status: `DRAFT → ACTIVE → FINISHED`, solo owner (Server Action o `PATCH /api/mundialitos/[id]`) + botones en `src/app/mundialito/[id]/page.tsx`. — ✅ 2026-10-07. `PATCH /api/mundialitos/[id]`: solo transiciones válidas con CAS (sin races), 401/403/409 server-side, bloquea iniciar con 0 participantes o 0 ítems (error en español). `status-actions.tsx` con confirmación en dos pasos.
+- [x] **10.** Elegir nombre: pantalla para seleccionar un participante de la lista predefinida (identidad del votante para la sesión de voto). — ✅ 2026-10-07. Roster con botones grandes, `localStorage` claveado por mundialito, control "Cambiar de nombre".
+- [x] **11.** API de votos: `POST`/`PUT` con upsert por PK compuesta `(participantId, itemId)`, score validado 1-10. — ✅ 2026-10-07. `PUT /api/votes`: bulk upsert atómico multi-row; validación server-side completa (UUIDs, no vacío, duplicados, entero 1–10, status → 409 con mensaje español); errores RLS mapeados (42501→403 etc.) sin filtrar PostgREST. `GET /api/votes` para prefill (400 en params malos, nunca 500).
+- [x] **12.** Pantalla de votación mobile-first: puntuar cada ítem del 1 al 10, modificar puntajes mientras esté `ACTIVE`, confirmar. — ✅ 2026-10-07. Ballot con botones 1–10 tocables, prefill desde GET, un solo "Confirmar votación" → PUT, estados DRAFT/FINISHED, vista amigable para id inválido. Smoke: `/vote/<uuid>` → 200, `GET /api/votes` → 200 `{"votes":[]}`.
+- [x] **13.** Owner votante: una vez en `ACTIVE`, el owner puede votar como un participante más (sin privilegios sobre su voto). — ✅ 2026-10-07. Policies `TO anon, authenticated` sin binding → el owner logueado vota idéntico a un anónimo; prefill funciona vía su policy de SELECT de 002.
+
+**✅ Verificación funcional Fase 2 (2026-10-07): suite 62 pass / 0 fail / 2 skip** — batería end-to-end contra dev server + Supabase remoto: RLS 003 anon (24 checks: DRAFT oculto, ACTIVE/FINISHED legibles, INSERT voto con CHECK/FK, UPDATE propio voto, DELETE/UPDATE de estructura bloqueados con efecto verificado as owner), transiciones PATCH (11: 404 sin oráculo, 400/401, 409 vacío, CAS, sin vuelta atrás), matriz PUT/GET /api/votes (20), UI smoke (3), teardown (2). Suite temporal en `C:\Users\Ale\AppData\Local\Temp\opencode\test-phase2.mjs` (no se commitea — Vitest llega en Fase 4). **2 checks omitidos** (PATCH-07/08: 404 ajeno vs 403 participante no-owner) requieren 2da identidad → desactivar "Confirm email" los habilita.
+
+**Pendientes menores de la auditoría Fase 2 (PASS WITH FINDINGS — 2026-10-07):**
+
+- [ ] **28.** (SUGGESTION) `PUT /api/votes` acepta un ballot **parcial** server-side (el cliente exige completo, pero un caller directo puede enviar subset): verificar opcionalmente que los `itemId` enviados cubran exactamente los ítems del mundialito antes del upsert.
+- [ ] **29.** (SUGGESTION) `vote-client.tsx` — `fetchExistingVotes` traga todos los errores devolviendo `{}`: una falla transitoria muestra ballot vacío y el votante puede confundirse. Mostrar estado de error de carga en vez de fallback silencioso.
+
+> **Tradeoffs aceptados de la Fase 2 (documentados):** cualquier usuario autenticado puede escribir votos en un mundialito ACTIVE sin binding de identidad (necesario para el voto del owner — task 13); re-correr 002 manualmente después de 003 restauraría el binding (comment en el header de 003); "peeking" de votos anónimos mientras ACTIVE (modelo de confianza Opción A).
 
 ## Fase 3 — Completar funcionalidades MVP
 
