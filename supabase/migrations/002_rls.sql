@@ -45,8 +45,9 @@ $$;
 
 -- ¿Puede el usuario actual ver este mundialito?
 -- Owner o participante autenticado.
--- Los participantes sin cuenta (auth_user_id null) no dependen de RLS
--- para lectura: se resuelven con invite_token (ver 003).
+-- Los participantes sin cuenta (auth_user_id null) no se resuelven via
+-- RLS: la participacion es un link abierto (Opcion A), sin tokens por
+-- participante (invite_token esta fuera del alcance del MVP).
 create or replace function public.can_read_mundialito(target_mundialito_id uuid)
 returns boolean
 language sql

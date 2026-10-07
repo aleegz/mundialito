@@ -25,6 +25,15 @@ export function DeleteParticipantButton({
       method: "DELETE",
     });
 
+    // 404 = ya no existe (o no hay permiso). Se trata como borrado
+    // efectivo: cerrar la confirmación y refrescar la lista.
+    if (response.status === 404) {
+      setConfirming(false);
+      setPending(false);
+      router.refresh();
+      return;
+    }
+
     if (!response.ok) {
       const data = await response.json().catch(() => null);
       setError(data?.error ?? "No se pudo eliminar.");

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function LoginPage({
   searchParams,
@@ -66,6 +67,10 @@ export default async function LoginPage({
       {errorMessage && (
         <p style={{ color: "crimson", marginTop: "1rem" }}>{errorMessage}</p>
       )}
+
+      <p style={{ marginTop: "1rem" }}>
+        ¿No tenés cuenta? <Link href="/register">Registrate</Link>
+      </p>
     </main>
   );
 }

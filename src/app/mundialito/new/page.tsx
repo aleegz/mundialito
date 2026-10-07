@@ -32,11 +32,11 @@ export default async function NewMundialitoPage({
      * con un error que el usuario puede resolver al instante.
      */
     if (name.length === 0) {
-      redirect("/mundialito/nuevo?error=El+nombre+es+obligatorio");
+      redirect("/mundialito/new?error=El+nombre+es+obligatorio");
     }
 
     if (name.length > 100) {
-      redirect("/mundialito/nuevo?error=El+nombre+es+demasiado+largo");
+      redirect("/mundialito/new?error=El+nombre+es+demasiado+largo");
     }
 
     const { data, error } = await supabase
@@ -51,7 +51,7 @@ export default async function NewMundialitoPage({
 
     if (error || !data) {
       redirect(
-        `/mundialito/nuevo?error=${encodeURIComponent(error?.message ?? "Error desconocido")}`,
+        `/mundialito/new?error=${encodeURIComponent(error?.message ?? "Error desconocido")}`,
       );
     }
 
