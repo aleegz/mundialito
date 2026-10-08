@@ -36,7 +36,7 @@ Al completar una tarea: marcar `- [x]`, agregar la fecha y una nota breve si hub
 - [x] **12.** Pantalla de votación mobile-first: puntuar cada ítem del 1 al 10, modificar puntajes mientras esté `ACTIVE`, confirmar. — ✅ 2026-10-07. Ballot con botones 1–10 tocables, prefill desde GET, un solo "Confirmar votación" → PUT, estados DRAFT/FINISHED, vista amigable para id inválido. Smoke: `/vote/<uuid>` → 200, `GET /api/votes` → 200 `{"votes":[]}`.
 - [x] **13.** Owner votante: una vez en `ACTIVE`, el owner puede votar como un participante más (sin privilegios sobre su voto). — ✅ 2026-10-07. Policies `TO anon, authenticated` sin binding → el owner logueado vota idéntico a un anónimo; prefill funciona vía su policy de SELECT de 002.
 
-**✅ Verificación funcional Fase 2 (2026-10-07): suite 62 pass / 0 fail / 2 skip** — batería end-to-end contra dev server + Supabase remoto: RLS 003 anon (24 checks: DRAFT oculto, ACTIVE/FINISHED legibles, INSERT voto con CHECK/FK, UPDATE propio voto, DELETE/UPDATE de estructura bloqueados con efecto verificado as owner), transiciones PATCH (11: 404 sin oráculo, 400/401, 409 vacío, CAS, sin vuelta atrás), matriz PUT/GET /api/votes (20), UI smoke (3), teardown (2). Suite temporal en `C:\Users\Ale\AppData\Local\Temp\opencode\test-phase2.mjs` (no se commitea — Vitest llega en Fase 4). **2 checks omitidos** (PATCH-07/08: 404 ajeno vs 403 participante no-owner) requieren 2da identidad → desactivar "Confirm email" los habilita.
+**✅ Verificación funcional Fase 2 (2026-10-07, actualizada 2026-10-08): suite 72 pass / 0 fail / 2 skip** — batería end-to-end contra dev server + Supabase remoto: RLS 003 anon (27 checks: DRAFT oculto, ACTIVE/FINISHED legibles, INSERT voto con CHECK/FK, UPDATE propio voto, DELETE/UPDATE de estructura bloqueados con efecto verificado as owner, + auto-registro: UPDATE display_name permitido en ACTIVE, column grant de `auth_user_id` rechazado, DRAFT immutable), transiciones PATCH (12: 404 sin oráculo, 400/401, 409 vacío, CAS, sin vuelta atrás, **activar con 0 participantes → 200**), API self-registration (7: POST `{name}` sin sesión → 200, duplicados, validaciones, DRAFT → 404 sin oráculo, PATCH rename), matriz PUT/GET /api/votes (20), UI smoke (3), teardown (2). Suite temporal en `C:\Users\Ale\AppData\Local\Temp\opencode\test-phase2.mjs` (no se commitea — Vitest llega en Fase 4). **2 checks omitidos** (PATCH-07/08: 404 ajeno vs 403 participante no-owner) requieren 2da identidad → desactivar "Confirm email" los habilita. **2026-10-08:** bug de campo — la sección de self-registration de 003 no estaba aplicada en la base (RPC `is_mundialito_active` devolvía PGRST202) → el POST de registro respondía 403; re-aplicada la 003 y agregados SR-01..07 + RLS-20b/20c como regresión.
 
 **Pendientes menores de la auditoría Fase 2 (PASS WITH FINDINGS — 2026-10-07):**
 
@@ -47,10 +47,10 @@ Al completar una tarea: marcar `- [x]`, agregar la fecha y una nota breve si hub
 
 ## Fase 3 — Completar funcionalidades MVP
 
-- [ ] **14.** Editar Mundialito: form de `name`/`description` (solo en `DRAFT`) — hoy no existe ningún `.update()` en `src/`.
-- [ ] **15.** Cálculos de resultados: `src/lib/calculations/ranking.ts` con funciones puras — promedio, mínimo, máximo, cantidad de votos, posición con empates (`calculateRanking()`, `calculateAverage()`, `validateScore()`).
-- [ ] **16.** Página de resultados: tabla por ítem + ranking, visible cuando el Mundialito esté `FINISHED` (nunca persistir derivados, calcular al vuelo).
-- [ ] **17.** Compartir: UI con el link copiable + generación de QR (codifica el mismo enlace).
+- [x] **14.** Editar Mundialito: form de `name`/`description` (solo en `DRAFT`) — hoy no existe ningún `.update()` en `src/`. — ✅ 2026-10-08. `PUT /api/mundialitos/[id]` solo en DRAFT (409 si no), `edit-mundialito-form.tsx` en la página del owner.
+- [x] **15.** Cálculos de resultados: `src/lib/calculations/ranking.ts` con funciones puras — promedio, mínimo, máximo, cantidad de votos, posición con empates (`calculateRanking()`, `calculateAverage()`, `validateScore()`). — ✅ 2026-10-08. Competition ranking (empates comparten posición, siguiente se salta), cubierto por los checks de la suite.
+- [x] **16.** Página de resultados: tabla por ítem + ranking, visible cuando el Mundialito esté `FINISHED` (nunca persistir derivados, calcular al vuelo). — ✅ 2026-10-08. Vista FINISHED en `vote-client.tsx` con ranking + tabla por ítem, todo calculado al vuelo.
+- [x] **17.** Compartir: UI con el link copiable + generación de QR (codifica el mismo enlace). — ✅ 2026-10-08. `share-links.tsx` con QR (`qrcode`, único dep nuevo aprobado) y copy-to-clipboard.
 
 ## Fase 4 — Testing
 
