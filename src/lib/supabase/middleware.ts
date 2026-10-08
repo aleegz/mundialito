@@ -64,11 +64,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Usuario logueado que entra al login: mandarlo al inicio.
+  // Usuario logueado que entra al login o al register: mandarlo al
+  // inicio. En register es doblemente importante: sin este guard un
+  // signUp desde una pestaña vieja pisaría la sesión activa.
   // Solo en GET: si redirigimos un POST (Server Action), Next espera un
   // payload RSC y el cliente del form falla con
   // "An unexpected response was received from the server".
-  if (user && pathname === "/login" && request.method === "GET") {
+  if (
+    user &&
+    (pathname === "/login" || pathname === "/register") &&
+    request.method === "GET"
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

@@ -12,6 +12,20 @@ const MIN_PASSWORD_LENGTH = 8;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Un UNICO mensaje para todo fallo de signUp. Nunca se expone
+ * error.message crudo: "User already registered" (o un
+ * "contraseña débil" diferenciado) permite enumeración de cuentas —
+ * un atacante distingue email existente de inexistente por el texto.
+ * El formato de email/contraseña ya se valida arriba con mensajes
+ * propios, así que este mensaje solo cubre fallos de Supabase.
+ * TRADEOFF ACEPTADO: éxito vs. fallo del signUp en sí no se puede
+ * ocultar sin confirmación de email; el mensaje, en cambio, no agrega
+ * ningún oráculo extra.
+ */
+const SIGNUP_ERROR_MESSAGE =
+  "No se pudo crear la cuenta. Revisá los datos o, si ya tenés una, iniciá sesión.";
+
 export default async function RegisterPage({
   searchParams,
 }: {
@@ -37,10 +51,23 @@ export default async function RegisterPage({
 
     const supabase = await createClient();
 
+    /**
+     * Defensa en profundidad del guard del proxy (TASKS 25): el proxy
+     * solo redirige GET (redirigir un POST romperia la Server Action),
+     * asi que un form en una pestaña vieja podria llegar aca logueado.
+     * Un signUp en ese estado pisaria la sesion activa.
+     */
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    if (currentUser) {
+      redirect("/");
+    }
+
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      redirect(`/register?error=${encodeURIComponent(error.message)}`);
+      redirect(`/register?error=${encodeURIComponent(SIGNUP_ERROR_MESSAGE)}`);
     }
 
     // Redirigir dentro de la Server Action es obligatorio: si la action
@@ -82,7 +109,7 @@ export default async function RegisterPage({
         <input
           name="password"
           type="password"
-          placeholder="Password"
+          placeholder="Contraseña"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
           required

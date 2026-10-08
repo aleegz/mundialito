@@ -54,7 +54,7 @@ export default async function LoginPage({
         <input
           name="password"
           type="password"
-          placeholder="Password"
+          placeholder="Contraseña"
           autoComplete="current-password"
           required
           style={inputStyle}

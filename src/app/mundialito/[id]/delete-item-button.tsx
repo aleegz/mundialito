@@ -33,7 +33,9 @@ export function DeleteItemButton({ itemId, name }: Props) {
       const data = await response.json().catch(() => null);
       setError(data?.error ?? "No se pudo eliminar.");
       setPending(false);
-      setConfirming(false);
+      // NO cerrar la confirmación: el <small> del error solo se
+      // renderiza dentro del bloque confirming (bug TASKS 27 —
+      // setConfirming(false) acá desmontaba el mensaje al toque).
       return;
     }
 
@@ -44,7 +46,10 @@ export function DeleteItemButton({ itemId, name }: Props) {
     return (
       <button
         type="button"
-        onClick={() => setConfirming(true)}
+        onClick={() => {
+          setError(null);
+          setConfirming(true);
+        }}
         style={buttonStyle}
         aria-label={`Eliminar ${name}`}
       >
@@ -68,7 +73,10 @@ export function DeleteItemButton({ itemId, name }: Props) {
       </button>
       <button
         type="button"
-        onClick={() => setConfirming(false)}
+        onClick={() => {
+          setError(null);
+          setConfirming(false);
+        }}
         disabled={pending}
         style={buttonStyle}
       >
