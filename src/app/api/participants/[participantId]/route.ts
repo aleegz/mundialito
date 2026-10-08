@@ -140,7 +140,7 @@ export async function PATCH(
    */
   const { data: mundialito, error: statusError } = await supabase
     .from("mundialitos")
-    .select("status")
+    .select("status, mode")
     .eq("id", participant.mundialito_id)
     .maybeSingle();
 
@@ -162,9 +162,20 @@ export async function PATCH(
     );
   }
 
-  if (mundialito.status !== "ACTIVE") {
+  // Renombrarse: RANKING en ACTIVE; CRUCES en PARTICIPANTS_OPEN
+  // (espejo de participants_update_self_cruces / participants_update_self).
+  const canSelfRename =
+    mundialito.status === "ACTIVE" ||
+    (mundialito.mode === "CRUCES" && mundialito.status === "PARTICIPANTS_OPEN");
+
+  if (!canSelfRename) {
     return NextResponse.json(
-      { error: "La votación aún no comenzó." },
+      {
+        error:
+          mundialito.mode === "CRUCES"
+            ? "La inscripción está cerrada."
+            : "La votación aún no comenzó.",
+      },
       { status: 409 },
     );
   }

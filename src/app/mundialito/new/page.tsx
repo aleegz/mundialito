@@ -25,6 +25,7 @@ export default async function NewMundialitoPage({
     const name = (formData.get("name") as string | null)?.trim() ?? "";
     const description =
       (formData.get("description") as string | null)?.trim() || null;
+    const mode = formData.get("mode");
 
     /**
      * Validacion espejo de la DB (CHECK length(trim(name)) > 0).
@@ -39,11 +40,16 @@ export default async function NewMundialitoPage({
       redirect("/mundialito/new?error=El+nombre+es+demasiado+largo");
     }
 
+    // Mismo CHECK que la BD: solo dos modos. Cualquier otro valor
+    // (include el default del HTML) cae en RANKING.
+    const selectedMode = mode === "CRUCES" ? "CRUCES" : "RANKING";
+
     const { data, error } = await supabase
       .from("mundialitos")
       .insert({
         name,
         description,
+        mode: selectedMode,
         owner_id: user.id,
       })
       .select()
@@ -98,6 +104,30 @@ export default async function NewMundialitoPage({
           />
         </label>
 
+        <fieldset style={fieldsetStyle}>
+          <legend style={legendStyle}>Modo de competición</legend>
+
+          <label style={radioStyle}>
+            <input type="radio" name="mode" value="RANKING" defaultChecked />
+            <span>
+              <strong>Ranking 1–10</strong>
+              <small style={smallStyle}>
+                Cada participante puntúa todos los ítems; gana el mejor promedio.
+              </small>
+            </span>
+          </label>
+
+          <label style={radioStyle}>
+            <input type="radio" name="mode" value="CRUCES" />
+            <span>
+              <strong>Eliminación directa</strong>
+              <small style={smallStyle}>
+                Los ítems se cruzan de a dos y el ganador avanza. Necesita 4, 8, 16 o 32 ítems.
+              </small>
+            </span>
+          </label>
+        </fieldset>
+
         <button type="submit" style={buttonStyle}>
           Crear Mundialito
         </button>
@@ -134,4 +164,32 @@ const buttonStyle: React.CSSProperties = {
   borderRadius: "0.5rem",
   fontSize: "1rem",
   cursor: "pointer",
+};
+
+const fieldsetStyle: React.CSSProperties = {
+  border: "1px solid #ccc",
+  borderRadius: "0.5rem",
+  padding: "0.75rem 1rem",
+  display: "grid",
+  gap: "0.75rem",
+};
+
+const legendStyle: React.CSSProperties = {
+  fontSize: "0.9rem",
+  fontWeight: "500",
+};
+
+const radioStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "0.5rem",
+  alignItems: "flex-start",
+  fontSize: "0.95rem",
+  cursor: "pointer",
+};
+
+const smallStyle: React.CSSProperties = {
+  display: "block",
+  color: "#666",
+  fontSize: "0.8rem",
+  marginTop: "0.15rem",
 };

@@ -54,6 +54,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          mode: string
           name: string
           owner_id: string
           status: string
@@ -63,6 +64,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          mode?: string
           name: string
           owner_id: string
           status?: string
@@ -72,6 +74,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          mode?: string
           name?: string
           owner_id?: string
           status?: string
@@ -87,6 +90,7 @@ export type Database = {
           id: string
           invite_token_hash: string | null
           mundialito_id: string
+          status: string
           updated_at: string
         }
         Insert: {
@@ -96,6 +100,7 @@ export type Database = {
           id?: string
           invite_token_hash?: string | null
           mundialito_id: string
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -105,6 +110,7 @@ export type Database = {
           id?: string
           invite_token_hash?: string | null
           mundialito_id?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -159,6 +165,129 @@ export type Database = {
           },
         ]
       }
+      matches: {
+        Row: {
+          created_at: string
+          id: string
+          item_a_id: string | null
+          item_b_id: string | null
+          mundialito_id: string
+          position: number
+          round: number
+          status: string
+          updated_at: string
+          vote_round: number
+          winner_item_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_a_id?: string | null
+          item_b_id?: string | null
+          mundialito_id: string
+          position: number
+          round: number
+          status?: string
+          updated_at?: string
+          vote_round?: number
+          winner_item_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_a_id?: string | null
+          item_b_id?: string | null
+          mundialito_id?: string
+          position?: number
+          round?: number
+          status?: string
+          updated_at?: string
+          vote_round?: number
+          winner_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_item_a_fk"
+            columns: ["mundialito_id", "item_a_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+          {
+            foreignKeyName: "matches_item_b_fk"
+            columns: ["mundialito_id", "item_b_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+          {
+            foreignKeyName: "matches_mundialito_id_fkey"
+            columns: ["mundialito_id"]
+            isOneToOne: false
+            referencedRelation: "mundialitos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_fk"
+            columns: ["mundialito_id", "winner_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+        ]
+      }
+      match_votes: {
+        Row: {
+          chosen_item_id: string
+          created_at: string
+          match_id: string
+          mundialito_id: string
+          participant_id: string
+          updated_at: string
+          vote_round: number
+        }
+        Insert: {
+          chosen_item_id: string
+          created_at?: string
+          match_id: string
+          mundialito_id: string
+          participant_id: string
+          updated_at?: string
+          vote_round?: number
+        }
+        Update: {
+          chosen_item_id?: string
+          created_at?: string
+          match_id?: string
+          mundialito_id?: string
+          participant_id?: string
+          updated_at?: string
+          vote_round?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_votes_chosen_fk"
+            columns: ["mundialito_id", "chosen_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+          {
+            foreignKeyName: "match_votes_match_fk"
+            columns: ["mundialito_id", "match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+          {
+            foreignKeyName: "match_votes_participant_fk"
+            columns: ["mundialito_id", "participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["mundialito_id", "id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -166,6 +295,24 @@ export type Database = {
     Functions: {
       can_read_mundialito: {
         Args: { target_mundialito_id: string }
+        Returns: boolean
+      }
+      can_vote_in_match: {
+        Args: {
+          target_item_id: string
+          target_match_id: string
+          target_participant_id: string
+          target_vote_round: number
+        }
+        Returns: boolean
+      }
+      cast_match_vote: {
+        Args: {
+          p_chosen_item_id: string
+          p_match_id: string
+          p_participant_id: string
+          p_vote_round?: number
+        }
         Returns: boolean
       }
       current_participant_id: {

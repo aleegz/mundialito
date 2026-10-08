@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/uuid";
+import { isValidBracketSize } from "@/lib/calculations/bracket";
 
 type PatchRequestBody = {
   status?: unknown;
@@ -9,16 +10,32 @@ type PatchRequestBody = {
 type PutRequestBody = {
   name?: unknown;
   description?: unknown;
+  mode?: unknown;
 };
 
-const TRANSITIONS = {
+/**
+ * Transiciones por modo. RANKING conserva exactamente el flujo
+ * original (DRAFT -> ACTIVE -> FINISHED). CRUCES agrega la secuencia
+ * de eliminacion directa; DRAWN y VOTING se alcanzan via POSTs
+ * dedicados (draw/start) porque tienen efectos secundarios, no por
+ * PATCH.
+ */
+const RANKING_TRANSITIONS = {
   ACTIVE: "DRAFT",
   FINISHED: "ACTIVE",
 } as const;
 
+const CRUCES_TRANSITIONS = {
+  PARTICIPANTS_OPEN: "DRAFT",
+  PARTICIPANTS_LOCKED: "PARTICIPANTS_OPEN",
+} as const;
+
 /**
- * Transiciones de estado del Mundialito: DRAFT -> ACTIVE -> FINISHED.
- * Sin vuelta atras y sin saltos, solo owner.
+ * Transiciones de estado del Mundialito segun el modo:
+ * RANKING: DRAFT -> ACTIVE -> FINISHED. Sin vuelta atras y sin
+ * saltos, solo owner.
+ * CRUCES:  DRAFT -> PARTICIPANTS_OPEN -> PARTICIPANTS_LOCKED (luego
+ * draw/start via POST).
  *
  * Se implemento como PATCH (y no Server Action) porque TODA la
  * mutacion de la pagina de detalle pasa hoy por API routes llamados
@@ -47,11 +64,24 @@ export async function PATCH(
 
   const { status: target } = body;
 
-  if (target !== "ACTIVE" && target !== "FINISHED") {
-    return NextResponse.json(
-      { error: "Estado invalido. Solo ACTIVE o FINISHED." },
-      { status: 400 },
-    );
+  // Targets que el PATCH puede transicionar en ALGUN modo. La
+  // validez per-mode se decide despues de leer el mundialito (un
+  // CRUCES no acepta ACTIVE, un RANKING no acepta PARTICIPANTS_OPEN),
+  // pero mandar algo fuera de esta lista es un error de cuerpo puro:
+  // se rechaza ANTES de auth para no gastar una lectura. La lista es
+  // igual para todos los mundialitos, no revela modo ni existencia.
+  const KNOWN_TARGETS = [
+    "ACTIVE",
+    "FINISHED",
+    "PARTICIPANTS_OPEN",
+    "PARTICIPANTS_LOCKED",
+  ] as const;
+
+  if (
+    typeof target !== "string" ||
+    !KNOWN_TARGETS.includes(target as (typeof KNOWN_TARGETS)[number])
+  ) {
+    return NextResponse.json({ error: "Estado invalido." }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -67,7 +97,7 @@ export async function PATCH(
 
   const { data: mundialito, error: readError } = await supabase
     .from("mundialitos")
-    .select("status, owner_id")
+    .select("status, mode, owner_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -92,7 +122,23 @@ export async function PATCH(
     );
   }
 
-  const expectedFrom = TRANSITIONS[target];
+  // Un solo mapa de transiciones segun el modo. Los estados del otro
+  // modo NO son targets validos para este mundialito (p.ej. mandar
+  // ACTIVE a un CRUCES -> 400).
+  const transitions =
+    mundialito.mode === "CRUCES" ? CRUCES_TRANSITIONS : RANKING_TRANSITIONS;
+
+  if (!(target in transitions)) {
+    const allowed = Object.keys(transitions);
+    return NextResponse.json(
+      {
+        error: `Estado invalido. Solo ${allowed.join(" o ")}.`,
+      },
+      { status: 400 },
+    );
+  }
+
+  const expectedFrom = transitions[target as keyof typeof transitions];
 
   if (mundialito.status !== expectedFrom) {
     if (mundialito.status === target) {
@@ -108,9 +154,34 @@ export async function PATCH(
     );
   }
 
-  // Iniciar exige al menos un item. Los participantes NO: desde el
-  // flujo de self-registration se crean solos al votar (ACTIVE), asi
-  // que el roster pre-cargado es opcional.
+  // Abrir inscripcion en CRUCES exige una cantidad de items valida
+  // para eliminacion directa: 4, 8, 16 o 32. Sin ello el bracket no
+  // existe (potencias exactas de 2 => cero byes). Idem para RANKING,
+  // que exige al menos un item para iniciar.
+  if (target === "PARTICIPANTS_OPEN") {
+    const { count, error: itemsError } = await supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("mundialito_id", id);
+
+    if (itemsError) {
+      return NextResponse.json(
+        { error: "No se pudo validar el estado del Mundialito." },
+        { status: 400 },
+      );
+    }
+
+    if (!isValidBracketSize(count ?? 0)) {
+      return NextResponse.json(
+        {
+          error:
+            "Para eliminar directo hacen falta 4, 8, 16 o 32 ítems.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   if (target === "ACTIVE") {
     const { count, error: itemsError } = await supabase
       .from("items")
@@ -129,6 +200,32 @@ export async function PATCH(
         {
           error:
             "No se puede iniciar la votación: no hay ítems. Agregá al menos uno.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Cerrar inscripcion en CRUCES exige al menos un participante: el
+  // sorteo no tiene sentido con un roster vacio.
+  if (target === "PARTICIPANTS_LOCKED") {
+    const { count, error: participantsError } = await supabase
+      .from("participants")
+      .select("id", { count: "exact", head: true })
+      .eq("mundialito_id", id);
+
+    if (participantsError) {
+      return NextResponse.json(
+        { error: "No se pudo validar el estado del Mundialito." },
+        { status: 400 },
+      );
+    }
+
+    if (!count) {
+      return NextResponse.json(
+        {
+          error:
+            "Necesitás al menos un participante para cerrar la inscripción.",
         },
         { status: 409 },
       );
@@ -239,6 +336,21 @@ export async function PUT(
 
   const rawName = body.name;
   const rawDescription = body.description;
+  const rawMode = body.mode;
+
+  // El modo solo se puede cambiar mientras DRAFT. `undefined` = no se
+  // envia (editar solo nombre/descripcion); null o cualquier otro
+  // valor no valido -> 400. Mismo criterio espejo que name/description.
+  let mode: "RANKING" | "CRUCES" | undefined;
+  if (rawMode !== undefined) {
+    if (rawMode !== "RANKING" && rawMode !== "CRUCES") {
+      return NextResponse.json(
+        { error: "Modo invalido. Solo RANKING o CRUCES." },
+        { status: 400 },
+      );
+    }
+    mode = rawMode;
+  }
 
   // Validacion espejo de create: name requerido, trimmed no vacio, mismo maximo (100)
   if (typeof rawName !== "string") {
@@ -273,9 +385,17 @@ export async function PUT(
     }
   }
 
+  const updates: { name: string; description: string | null; mode?: "RANKING" | "CRUCES" } = {
+    name,
+    description,
+  };
+  if (mode !== undefined) {
+    updates.mode = mode;
+  }
+
   const { error: updateError } = await supabase
     .from("mundialitos")
-    .update({ name, description })
+    .update(updates)
     .eq("id", id)
     .eq("owner_id", user.id);
 

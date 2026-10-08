@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 type Props = {
   mundialitoId: string;
   status: string;
+  /** modo del mundialito (RANKING | CRUCES): cambia el copy del form. */
+  mode: string;
 };
 
 /**
@@ -16,13 +18,14 @@ type Props = {
  * Las operaciones de escritura van al servidor: nunca se habla con
  * Supabase desde el browser para mutar datos.
  *
- * Tres estados:
+ * Estados:
  *  - DRAFT: el owner carga el roster masivo (POST /api/participants).
- *  - ACTIVE: el roster no se administra; quien entra al link se
- *    registra con su nombre al votar (auto-registro).
- *  - FINISHED: lista congelada.
+ *  - RANKING ACTIVE: quien entra al link se registra con su nombre.
+ *  - CRUCES PARTICIPANTS_OPEN: cada uno se suma desde el link; el
+ *    owner solo administra exclusiones durante el torneo.
+ *  - Resto: lista congelada.
  */
-export function AddParticipantsForm({ mundialitoId, status }: Props) {
+export function AddParticipantsForm({ mundialitoId, status, mode }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +82,16 @@ export function AddParticipantsForm({ mundialitoId, status }: Props) {
   }
 
   if (status !== "DRAFT") {
+    // CRUCES: en PARTICIPANTS_OPEN cada uno se suma desde el link
+    // (el owner no carga nombres, solo excluye durante el torneo).
+    if (mode === "CRUCES" && status === "PARTICIPANTS_OPEN") {
+      return (
+        <p style={{ color: "#888" }}>
+          Los participantes se suman solos desde el link de inscripción.
+        </p>
+      );
+    }
+
     return (
       <p style={{ color: "#888" }}>
         La lista de participantes no se puede modificar en este estado.
