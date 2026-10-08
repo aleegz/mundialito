@@ -62,28 +62,36 @@ function formatAverage(average: number): string {
   return average.toFixed(2).replace(".", ",");
 }
 
+/**
+ * Prefill de los puntajes ya votados. Devuelve null cuando la carga
+ * falla (red, error del API, cuerpo invalido): asumir "sin votos
+ * previos" mostraria un ballot vacio silencioso y el votante se
+ * confunde si ya habia puntuado.
+ */
 async function fetchExistingVotes(
   mundialitoId: string,
   participantId: string,
-): Promise<Scores> {
+): Promise<Scores | null> {
   try {
     const response = await fetch(
       `/api/votes?mundialitoId=${mundialitoId}&participantId=${participantId}`,
     );
 
-    if (!response.ok) return {};
+    if (!response.ok) return null;
 
     const data = (await response.json()) as {
       votes?: { itemId: string; score: number }[];
     };
 
+    if (!Array.isArray(data.votes)) return null;
+
     const existing: Scores = {};
-    for (const vote of data.votes ?? []) {
+    for (const vote of data.votes) {
       existing[vote.itemId] = vote.score;
     }
     return existing;
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -228,6 +236,12 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         // Prefill: si este navegador ya voto, se recuperan los puntajes.
         const existing = await fetchExistingVotes(mundialitoId, me.id);
         if (cancelled) return;
+        if (existing === null) {
+          // Fallo de carga del prefill: avanzar con ballot vacio seria
+          // un fallback silencioso (el votante creeria que no voto).
+          setPhase("loaderror");
+          return;
+        }
         setScores(existing);
         setPhase("ballot");
       } else {

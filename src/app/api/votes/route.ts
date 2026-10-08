@@ -173,6 +173,40 @@ export async function PUT(request: Request) {
     );
   }
 
+  /**
+   * Ballot completo: el cliente envia los items que cargo y este
+   * chequeo alinea el server con ese contrato — un caller directo no
+   * puede persistir un subset. El set de items es estable mientras
+   * ACTIVE (RLS: insert/update/delete solo en DRAFT), asi que la
+   * comparacion es exacta. El FK compuesto sigue como backstop.
+   */
+  const { data: itemRows, error: itemsError } = await supabase
+    .from("items")
+    .select("id")
+    .eq("mundialito_id", mundialitoId);
+
+  if (itemsError) {
+    return NextResponse.json(
+      { error: "No se pudo validar la votación." },
+      { status: 400 },
+    );
+  }
+
+  const itemIds = new Set((itemRows ?? []).map((item) => item.id));
+  const coversExactly =
+    itemIds.size === seenItems.size &&
+    [...seenItems].every((itemId) => itemIds.has(itemId));
+
+  if (!coversExactly) {
+    return NextResponse.json(
+      {
+        error:
+          "La votación debe incluir exactamente todos los ítems del Mundialito.",
+      },
+      { status: 400 },
+    );
+  }
+
   const rows = cleanScores.map(({ itemId, score }) => ({
     mundialito_id: mundialitoId,
     participant_id: participantId,
