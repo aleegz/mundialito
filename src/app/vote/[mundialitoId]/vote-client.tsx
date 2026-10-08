@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/validation/uuid";
 import {
-  calculateItemRanking,
-  calculateOverallRanking,
+  calculateItemResults,
   validateScore,
   type VoteRow,
 } from "@/lib/calculations/ranking";
@@ -486,20 +485,32 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   }
 
   if (phase === "finished") {
-    const itemRankings = calculateItemRanking(votes);
-    const overallRanking = calculateOverallRanking(votes);
+    const itemResults = calculateItemResults(votes);
 
     const nameOf = (participantId: string): string =>
       participants.find((p) => p.id === participantId)?.display_name ??
       "Participante";
 
+    const itemNameOf = (itemId: string): string =>
+      items.find((i) => i.id === itemId)?.name ?? "Ítem";
+
     // Rows arrive ordered by position; break ties alphabetically so
     // shared positions render in a stable, readable order.
-    const overallSorted = [...overallRanking].sort(
+    const itemResultsSorted = [...itemResults].sort(
       (a, b) =>
         a.position - b.position ||
-        nameOf(a.participantId).localeCompare(nameOf(b.participantId)),
+        itemNameOf(a.itemId).localeCompare(itemNameOf(b.itemId)),
     );
+
+    // Raw votes grouped by item, for the detail section. The PK
+    // composite of votes guarantees each participant appears once per
+    // item, so this is their actual score — not an average of one.
+    const votesByItem = new Map<string, VoteRow[]>();
+    for (const vote of votes) {
+      const rows = votesByItem.get(vote.item_id) ?? [];
+      rows.push(vote);
+      votesByItem.set(vote.item_id, rows);
+    }
 
     return (
       <section>
@@ -511,26 +522,42 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           La votación finalizó. No se pueden modificar más los votos.
         </p>
 
-        <h2 style={resultsHeadingStyle}>Por ítem</h2>
+        <h2 style={resultsHeadingStyle}>Ranking de ítems</h2>
+
+        {itemResultsSorted.length === 0 ? (
+          <p style={mutedStyle}>Todavía no hay votos registrados.</p>
+        ) : (
+          <ol style={resultListStyle}>
+            {itemResultsSorted.map((row) => (
+              <li key={row.itemId} style={resultRowStyle}>
+                <div style={resultRowHeaderStyle}>
+                  <span style={positionStyle}>{row.position}.</span>
+                  <span>{itemNameOf(row.itemId)}</span>
+                </div>
+                <div style={resultStatsStyle}>
+                  Promedio {formatAverage(row.average)} · Mín {row.min} · Máx{" "}
+                  {row.max} · {row.voteCount}{" "}
+                  {row.voteCount === 1 ? "voto" : "votos"}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <h2 style={resultsHeadingStyle}>Detalle por ítem</h2>
 
         {items.length === 0 ? (
           <p style={mutedStyle}>No hay ítems para mostrar.</p>
         ) : (
           <div style={{ display: "grid", gap: "1.25rem" }}>
-            {items.map((item, index) => {
-              const rows = [...(itemRankings.get(item.id) ?? [])].sort(
-                (a, b) =>
-                  a.position - b.position ||
-                  nameOf(a.participantId).localeCompare(
-                    nameOf(b.participantId),
-                  ),
+            {items.map((item) => {
+              const rows = (votesByItem.get(item.id) ?? []).sort((a, b) =>
+                nameOf(a.participant_id).localeCompare(nameOf(b.participant_id)),
               );
 
               return (
                 <div key={item.id}>
-                  <div style={{ fontWeight: 700 }}>
-                    {index + 1}. {item.name}
-                  </div>
+                  <div style={{ fontWeight: 700 }}>{item.name}</div>
                   {item.description && (
                     <div style={{ ...mutedStyle, fontSize: "0.85rem" }}>
                       {item.description}
@@ -543,16 +570,13 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
                     </p>
                   ) : (
                     <ul style={resultListStyle}>
-                      {rows.map((row) => (
-                        <li key={row.participantId} style={resultRowStyle}>
+                      {rows.map((vote) => (
+                        <li key={vote.participant_id} style={resultRowStyle}>
                           <div style={resultRowHeaderStyle}>
-                            <span style={positionStyle}>{row.position}.</span>
-                            <span>{nameOf(row.participantId)}</span>
+                            <span>{nameOf(vote.participant_id)}</span>
                           </div>
                           <div style={resultStatsStyle}>
-                            Promedio {formatAverage(row.average)} · Mín{" "}
-                            {row.min} · Máx {row.max} · {row.voteCount}{" "}
-                            {row.voteCount === 1 ? "voto" : "votos"}
+                            Puntaje {vote.score}
                           </div>
                         </li>
                       ))}
@@ -562,27 +586,6 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               );
             })}
           </div>
-        )}
-
-        <h2 style={resultsHeadingStyle}>Ranking general</h2>
-
-        {overallSorted.length === 0 ? (
-          <p style={mutedStyle}>Todavía no hay votos registrados.</p>
-        ) : (
-          <ol style={resultListStyle}>
-            {overallSorted.map((row) => (
-              <li key={row.participantId} style={resultRowStyle}>
-                <div style={resultRowHeaderStyle}>
-                  <span style={positionStyle}>{row.position}.</span>
-                  <span>{nameOf(row.participantId)}</span>
-                </div>
-                <div style={resultStatsStyle}>
-                  Promedio {formatAverage(row.average)} · Total {row.total} ·{" "}
-                  {row.voteCount} {row.voteCount === 1 ? "voto" : "votos"}
-                </div>
-              </li>
-            ))}
-          </ol>
         )}
       </section>
     );
