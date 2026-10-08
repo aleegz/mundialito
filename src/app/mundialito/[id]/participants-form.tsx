@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 type Props = {
   mundialitoId: string;
-  isDraft: boolean;
+  status: string;
 };
 
 /**
@@ -15,8 +15,14 @@ type Props = {
  *
  * Las operaciones de escritura van al servidor: nunca se habla con
  * Supabase desde el browser para mutar datos.
+ *
+ * Tres estados:
+ *  - DRAFT: el owner carga el roster masivo (POST /api/participants).
+ *  - ACTIVE: el roster no se administra; quien entra al link se
+ *    registra con su nombre al votar (auto-registro).
+ *  - FINISHED: lista congelada.
  */
-export function AddParticipantsForm({ mundialitoId, isDraft }: Props) {
+export function AddParticipantsForm({ mundialitoId, status }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +68,17 @@ export function AddParticipantsForm({ mundialitoId, isDraft }: Props) {
     router.refresh();
   }
 
-  if (!isDraft) {
+  if (status === "ACTIVE") {
+    // La lista ya no se precarga: se arma sola mientras vota la gente.
+    return (
+      <p style={{ color: "#888" }}>
+        No hace falta cargar la lista: quien entra al link de votación se
+        registra con su nombre al votar.
+      </p>
+    );
+  }
+
+  if (status !== "DRAFT") {
     return (
       <p style={{ color: "#888" }}>
         La lista de participantes no se puede modificar en este estado.

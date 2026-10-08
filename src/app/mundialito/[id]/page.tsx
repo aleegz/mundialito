@@ -79,10 +79,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
       <section style={{ marginTop: "2rem" }}>
         <h2>Participantes ({participants?.length ?? 0})</h2>
 
-        <AddParticipantsForm
-          mundialitoId={id}
-          isDraft={mundialito.status === "DRAFT"}
-        />
+        <AddParticipantsForm mundialitoId={id} status={mundialito.status} />
 
         {participants?.length ? (
           <ul style={{ listStyle: "none", padding: 0 }}>

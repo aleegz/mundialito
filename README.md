@@ -123,9 +123,11 @@ Persona que participa en un Mundialito.
 | `name` | Nombre |
 | `userId` | Usuario asociado, opcional inicialmente |
 
-La participación no requiere crear una cuenta: quien recibe el enlace ingresa, elige su nombre de la lista de participantes y vota sin iniciar sesión.
+La participación no requiere crear una cuenta: quien recibe el enlace ingresa, se registra escribiendo su nombre y vota sin iniciar sesión.
 
-El propietario también puede votar una vez iniciada la votación, registrando su puntuación como cualquier otro participante.
+La lista de participantes es opcional: el owner puede precargarla en `DRAFT`, pero nadie está obligado a aparecer en ella — todo el mundo se registra con su propio nombre al entrar a votar.
+
+El propietario también puede votar una vez iniciada la votación, registrando primero su propio nombre, como cualquier otro participante.
 
 ### Ítem
 
@@ -196,9 +198,10 @@ El propietario de un Mundialito puede:
 Un participante no necesita cuenta ni inicio de sesión. Puede:
 
 - Ingresar al Mundialito mediante el enlace compartido (o su QR).
-- Identificarse eligiendo su nombre de la lista de participantes.
+- Registrarse con su nombre (sin cuenta ni sesión).
 - Votar (del 1 al 10) cuando la votación esté activa.
 - Modificar su voto mientras la votación esté abierta.
+- Modificar su nombre mientras la votación esté abierta.
 - Consultar los resultados cuando corresponda.
 
 Un participante nunca tiene permisos de administración: no puede crear, editar ni eliminar el Mundialito, sus participantes o sus ítems, y no puede iniciar ni finalizar la votación.
@@ -215,7 +218,7 @@ Ejemplo conceptual:
 /vote/abc123
 ```
 
-El enlace es abierto: cualquiera que lo reciba puede ingresar, elegir su nombre de la lista y votar. Esto prioriza la simplicidad sobre la integridad técnica del voto y asume confianza entre los participantes. Es una decisión aceptada para el MVP.
+El enlace es abierto: cualquiera que lo reciba puede ingresar, escribir su nombre y votar. Esto prioriza la simplicidad sobre la integridad técnica del voto y asume confianza entre los participantes. Es una decisión aceptada para el MVP.
 
 Posteriormente se pueden agregar:
 
@@ -236,7 +239,7 @@ Crear Mundialito
   ↓
 Nombre
   ↓
-Agregar participantes
+Agregar participantes (opcional)
   ↓
 Agregar ítems
   ↓
@@ -248,7 +251,7 @@ Mundialito creado
 ```text
 Abrir enlace o QR (sin login)
   ↓
-Elegir tu nombre en la lista
+Escribir tu nombre
   ↓
 Puntuar cada ítem (1-10)
   ↓

@@ -34,7 +34,7 @@ type Phase =
   | "loaderror"
   | "draft"
   | "finished"
-  | "roster"
+  | "identify"
   | "ballot";
 
 type Scores = Record<string, number>;
@@ -44,7 +44,8 @@ const SCORE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 /**
  * Identidad del votante (Opcion A): participantId en localStorage,
  * con la clave separada por mundialito para no mezclar votantes
- * del mismo navegador en competiciones distintas.
+ * del mismo navegador en competiciones distintas. El participantId
+ * se crea en el auto-registro (POST /api/participants con nombre).
  */
 function storageKey(mundialitoId: string): string {
   return `mundialito-vote-participant:${mundialitoId}`;
@@ -97,6 +98,10 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -173,47 +178,60 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         return;
       }
 
-      const [participantsResult, itemsResult] = await Promise.all([
-        supabase
-          .from("participants")
-          .select("id, display_name")
-          .eq("mundialito_id", mundialitoId)
-          .order("display_name", { ascending: true }),
+      // ACTIVE: sin roster. Se cargan los items y se restaura la
+      // identidad del votante (participantId en localStorage); si no
+      // hay, la pantalla pide el nombre y crea el participante.
+      const stored = window.localStorage.getItem(storageKey(mundialitoId));
+      const storedId = stored && isUuid(stored) ? stored : null;
+
+      if (stored && !storedId) {
+        window.localStorage.removeItem(storageKey(mundialitoId));
+      }
+
+      const [itemsResult, participantResult] = await Promise.all([
         supabase
           .from("items")
           .select("id, name, description")
           .eq("mundialito_id", mundialitoId)
           .order("created_at", { ascending: true }),
+        storedId
+          ? supabase
+              .from("participants")
+              .select("id, display_name")
+              .eq("id", storedId)
+              .eq("mundialito_id", mundialitoId)
+              .maybeSingle()
+          : null,
       ]);
 
       if (cancelled) return;
 
-      if (participantsResult.error || itemsResult.error) {
+      if (itemsResult.error || participantResult?.error) {
         setPhase("loaderror");
         return;
       }
 
-      const roster = participantsResult.data ?? [];
-      const stored = window.localStorage.getItem(storageKey(mundialitoId));
-      const restored =
-        stored && roster.some((p) => p.id === stored) ? stored : null;
+      // Sin fila para el id guardado = identidad invalida (borrada,
+      // u otro mundialito): se descarta y se vuelve al registro.
+      const me = participantResult?.data ?? null;
 
-      if (stored && !restored) {
+      if (storedId && !me) {
         window.localStorage.removeItem(storageKey(mundialitoId));
       }
 
       setMundialito(data);
-      setParticipants(roster);
       setItems(itemsResult.data ?? []);
 
-      if (restored) {
-        setSelectedId(restored);
-        const existing = await fetchExistingVotes(mundialitoId, restored);
+      if (me) {
+        setSelectedId(me.id);
+        setDisplayName(me.display_name);
+        // Prefill: si este navegador ya voto, se recuperan los puntajes.
+        const existing = await fetchExistingVotes(mundialitoId, me.id);
         if (cancelled) return;
         setScores(existing);
         setPhase("ballot");
       } else {
-        setPhase("roster");
+        setPhase("identify");
       }
     }
 
@@ -224,25 +242,147 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     };
   }, [mundialitoId]);
 
-  function onSelectParticipant(participant: Participant) {
-    window.localStorage.setItem(storageKey(mundialitoId), participant.id);
-    setSelectedId(participant.id);
-    setScores({});
-    setSaved(false);
+  /**
+   * Auto-registro: el server crea el participante (mundialito ACTIVE)
+   * y el participantId devuelto pasa a ser la identidad en este
+   * navegador.
+   * Participante nuevo = sin votos previos, no hay nada que prefillar.
+   */
+  async function onIdentify(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+
+    const name = nameInput.trim();
+
+    if (name.length === 0) {
+      setError("Escribí tu nombre.");
+      return;
+    }
+
+    setSubmitting(true);
     setError(null);
-    setPhase("ballot");
-    void fetchExistingVotes(mundialitoId, participant.id).then((existing) => {
-      setScores(existing);
-    });
+
+    try {
+      const response = await fetch("/api/participants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mundialitoId, name }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(data?.error ?? "No se pudo registrar tu nombre.");
+        return;
+      }
+
+      const data = (await response.json().catch(() => null)) as {
+        participant?: { id?: unknown; display_name?: unknown };
+      } | null;
+
+      const participantId = data?.participant?.id;
+      const registeredName = data?.participant?.display_name;
+
+      if (typeof participantId !== "string" || typeof registeredName !== "string") {
+        setError("No se pudo registrar tu nombre.");
+        return;
+      }
+
+      window.localStorage.setItem(storageKey(mundialitoId), participantId);
+      setSelectedId(participantId);
+      setDisplayName(registeredName);
+      setNameInput("");
+      setScores({});
+      setSaved(false);
+      setPhase("ballot");
+    } catch {
+      setError("No se pudo registrar tu nombre.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function onChangeName() {
+  function onStartEditName() {
+    setNameDraft(displayName);
+    setEditingName(true);
+    setError(null);
+  }
+
+  function onCancelEditName() {
+    setEditingName(false);
+    setNameDraft("");
+    setError(null);
+  }
+
+  async function onSaveName(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedId || submitting) return;
+
+    const name = nameDraft.trim();
+
+    if (name.length === 0) {
+      setError("Escribí tu nombre.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/participants/${selectedId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: name }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(data?.error ?? "No se pudo actualizar el nombre.");
+        return;
+      }
+
+      const data = (await response.json().catch(() => null)) as {
+        participant?: { display_name?: unknown };
+      } | null;
+
+      const updatedName = data?.participant?.display_name;
+
+      if (typeof updatedName !== "string") {
+        setError("No se pudo actualizar el nombre.");
+        return;
+      }
+
+      setDisplayName(updatedName);
+      setEditingName(false);
+      setNameDraft("");
+    } catch {
+      setError("No se pudo actualizar el nombre.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /**
+   * Otra persona en este navegador (o el mismo que quiere otro
+   * nombre): se descarta la identidad LOCAL y se vuelve al
+   * registro. La fila anterior queda intacta — solo se desvincula
+   * este navegador; crear otro participante con el mismo nombre
+   * esta permitido.
+   */
+  function onSwitchIdentity() {
     window.localStorage.removeItem(storageKey(mundialitoId));
     setSelectedId(null);
+    setDisplayName("");
+    setNameInput("");
+    setNameDraft("");
+    setEditingName(false);
     setScores({});
     setSaved(false);
     setError(null);
-    setPhase("roster");
+    setPhase("identify");
   }
 
   function onPickScore(itemId: string, score: number) {
@@ -324,8 +464,8 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           La votación aún no comenzó.
         </p>
         <p style={mutedStyle}>
-          Cuando se active vas a poder elegir tu nombre y votar. Recargá la
-          página más tarde.
+          Cuando se active vas a poder registrarte con tu nombre y votar.
+          Recargá la página más tarde.
         </p>
       </section>
     );
@@ -434,7 +574,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     );
   }
 
-  if (phase === "roster") {
+  if (phase === "identify") {
     return (
       <section>
         <h1>{mundialito?.name ?? "Mundialito"}</h1>
@@ -442,41 +582,38 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           <p style={mutedStyle}>{mundialito.description}</p>
         )}
 
-        <p style={{ fontWeight: 600, marginTop: "1.5rem" }}>
-          ¿Cómo te llamás? Elegí tu nombre de la lista.
-        </p>
+        <form onSubmit={onIdentify} style={nameFormStyle}>
+          <label style={nameLabelStyle}>
+            Tu nombre
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(event) => {
+                setNameInput(event.target.value);
+                setError(null);
+              }}
+              placeholder="Ej: Ana"
+              maxLength={100}
+              autoFocus
+              style={nameInputStyle}
+            />
+          </label>
 
-        {participants.length === 0 ? (
-          <p style={mutedStyle}>No hay participantes disponibles.</p>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              marginTop: "1rem",
-              display: "grid",
-              gap: "0.6rem",
-            }}
-          >
-            {participants.map((participant) => (
-              <li key={participant.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelectParticipant(participant)}
-                  style={rosterButtonStyle}
-                >
-                  {participant.display_name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+          <p style={mutedStyle}>
+            No hace falta cuenta: este nombre identifica tus votos. Los
+            nombres repetidos están bien.
+          </p>
+
+          {error && <p style={{ color: "crimson" }}>{error}</p>}
+
+          <button type="submit" disabled={submitting} style={submitButtonStyle}>
+            {submitting ? "Registrando…" : "Empezar a votar"}
+          </button>
+        </form>
       </section>
     );
   }
 
-  const selectedName =
-    participants.find((p) => p.id === selectedId)?.display_name ?? "";
   const allScored =
     items.length > 0 && items.every((item) => Number.isInteger(scores[item.id]));
 
@@ -484,17 +621,64 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     <section>
       <h1>{mundialito?.name ?? "Mundialito"}</h1>
 
-      <p style={{ color: "#666" }}>
-        Votando como <strong>{selectedName}</strong>{" "}
-        <button
-          type="button"
-          onClick={onChangeName}
-          disabled={submitting}
-          style={linkButtonStyle}
-        >
-          Cambiar de nombre
-        </button>
-      </p>
+      {editingName ? (
+        <form onSubmit={onSaveName} style={nameFormStyle}>
+          <label style={nameLabelStyle}>
+            Tu nombre
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(event) => {
+                setNameDraft(event.target.value);
+                setError(null);
+              }}
+              maxLength={100}
+              autoFocus
+              style={nameInputStyle}
+            />
+          </label>
+
+          {error && <p style={{ color: "crimson" }}>{error}</p>}
+
+          <div style={nameActionsStyle}>
+            <button
+              type="submit"
+              disabled={submitting}
+              style={nameSaveButtonStyle}
+            >
+              {submitting ? "Guardando…" : "Guardar nombre"}
+            </button>
+            <button
+              type="button"
+              onClick={onCancelEditName}
+              disabled={submitting}
+              style={nameCancelButtonStyle}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p style={{ color: "#666" }}>
+          Votando como <strong>{displayName}</strong>{" "}
+          <button
+            type="button"
+            onClick={onStartEditName}
+            disabled={submitting}
+            style={linkButtonStyle}
+          >
+            Editar nombre
+          </button>{" "}
+          <button
+            type="button"
+            onClick={onSwitchIdentity}
+            disabled={submitting}
+            style={linkButtonStyle}
+          >
+            Votar con otro nombre
+          </button>
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p style={mutedStyle}>No hay ítems para votar.</p>
@@ -553,7 +737,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
             ¡Voto registrado! Podés modificarlo mientras esté abierta.
           </p>
         )}
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
+        {/* Mientras se edita el nombre, el error se muestra junto al
+            form (arriba) para no duplicar el mensaje. */}
+        {!editingName && error && (
+          <p style={{ color: "crimson" }}>{error}</p>
+        )}
       </div>
 
       {items.length > 0 && !allScored && (
@@ -580,18 +768,54 @@ const mutedStyle: React.CSSProperties = {
   color: "#666",
 };
 
-const rosterButtonStyle: React.CSSProperties = {
+const nameFormStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  marginTop: "1.5rem",
+};
+
+const nameLabelStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+  fontSize: "0.9rem",
+  fontWeight: 500,
+};
+
+const nameInputStyle: React.CSSProperties = {
   width: "100%",
-  minHeight: "3.25rem",
-  padding: "0.85rem 1rem",
-  fontSize: "1.05rem",
-  textAlign: "left",
+  padding: "0.75rem",
   border: "1px solid #ccc",
   borderRadius: "0.5rem",
+  fontSize: "1rem",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+};
+
+const nameActionsStyle: React.CSSProperties = {
+  display: "inline-flex",
+  gap: "0.5rem",
+  alignItems: "center",
+  flexWrap: "wrap",
+};
+
+const nameSaveButtonStyle: React.CSSProperties = {
+  padding: "0.6rem 1rem",
+  background: "black",
+  color: "white",
+  border: "none",
+  borderRadius: "0.5rem",
+  fontSize: "0.95rem",
+  cursor: "pointer",
+};
+
+const nameCancelButtonStyle: React.CSSProperties = {
+  padding: "0.6rem 1rem",
   background: "white",
   color: "black",
+  border: "1px solid #ccc",
+  borderRadius: "0.5rem",
+  fontSize: "0.95rem",
   cursor: "pointer",
-  boxSizing: "border-box",
 };
 
 const scoreGridStyle: React.CSSProperties = {

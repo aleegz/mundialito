@@ -108,37 +108,23 @@ export async function PATCH(
     );
   }
 
-  // Iniciar exige al menos un participante y un item.
+  // Iniciar exige al menos un item. Los participantes NO: desde el
+  // flujo de self-registration se crean solos al votar (ACTIVE), asi
+  // que el roster pre-cargado es opcional.
   if (target === "ACTIVE") {
-    const [participantsResult, itemsResult] = await Promise.all([
-      supabase
-        .from("participants")
-        .select("id", { count: "exact", head: true })
-        .eq("mundialito_id", id),
-      supabase
-        .from("items")
-        .select("id", { count: "exact", head: true })
-        .eq("mundialito_id", id),
-    ]);
+    const { count, error: itemsError } = await supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("mundialito_id", id);
 
-    if (participantsResult.error || itemsResult.error) {
+    if (itemsError) {
       return NextResponse.json(
         { error: "No se pudo validar el estado del Mundialito." },
         { status: 400 },
       );
     }
 
-    if (!participantsResult.count) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede iniciar la votación: no hay participantes. Agregá al menos uno.",
-        },
-        { status: 409 },
-      );
-    }
-
-    if (!itemsResult.count) {
+    if (!count) {
       return NextResponse.json(
         {
           error:
