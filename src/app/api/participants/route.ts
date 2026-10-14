@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/uuid";
+import {
+  cleanParticipantNames,
+  validateParticipantName,
+} from "@/lib/validation/participant-name";
 
 type RequestBody = {
   mundialitoId?: unknown;
@@ -20,8 +24,6 @@ type RequestBody = {
  * El server (y no el browser) muta Supabase: mismo criterio que el
  * resto de las API routes.
  */
-
-const MAX_NAME_LENGTH = 100;
 
 /**
  * Mapea errores de PostgREST del auto-registro a respuestas limpias
@@ -83,21 +85,21 @@ export async function POST(request: Request) {
   // participantes distintos y cada uno vota lo suyo.
   // ---------------------------------------------------------------
   if (names === undefined && name !== undefined) {
-    if (typeof name !== "string" || name.trim().length === 0) {
+    const validated = validateParticipantName(name);
+
+    if (!validated.ok) {
       return NextResponse.json(
-        { error: "El nombre es obligatorio." },
+        {
+          error:
+            validated.reason === "too-long"
+              ? "El nombre es demasiado largo."
+              : "El nombre es obligatorio.",
+        },
         { status: 400 },
       );
     }
 
-    const displayName = name.trim();
-
-    if (displayName.length > MAX_NAME_LENGTH) {
-      return NextResponse.json(
-        { error: "El nombre es demasiado largo." },
-        { status: 400 },
-      );
-    }
+    const displayName = validated.value;
 
     const supabase = await createClient();
 
@@ -242,7 +244,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const cleanNames = names.map((n) => n.trim()).filter(Boolean);
+  const cleanNames = cleanParticipantNames(names);
 
   if (cleanNames.length === 0) {
     return NextResponse.json(

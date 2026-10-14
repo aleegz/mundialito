@@ -68,7 +68,12 @@ Feedback del owner tras usar el MVP: (a) un sistema tipo mundial con **cruces** 
 
 ## Fase 4 — Testing
 
-- [ ] **18.** Setup Vitest + tests unitarios de `calculations/` y validaciones (score 1-10, nombres vacíos, empates en ranking).
+- [x] **18.** Setup Vitest + tests unitarios de `calculations/` y validaciones (score 1-10, nombres vacíos, empates en ranking). — ✅ 2026-10-14. `vitest.config.mjs` (entorno `node`, `include: src/**/*.{test,spec}.{ts,tsx}`, resolución NATIVA de los paths de tsconfig — `resolve.tsconfigPaths: true`, sin plugin extra) + scripts `test` (watch), `test:run` (una pasada, para CI #20) y `test:ui`. Tres suites, **51 pass / 0 fail**:
+  - `ranking.test.ts` (18): `validateScore` (1–10, rechaza 0/11/decimales), `calculateAverage/Min/Max` (NaN en vacío), `calculateRanking` (olímpico 1,2,2,4; NaN al final), `calculateItemResults` (agrupa por ítem, no inventa ítems sin votos).
+  - `bracket.test.ts` (23): `isValidBracketSize`, `roundsFor`, `shuffle` (no muta + determinista + clamp con `rng()=1`), `drawBracket` (ronda 1 con slots, TBD posteriores, n-1 matches), `parentSlot`, `tallyMatch` (empate/decisivo/sin votos/slot inválido), `allActiveVoted`, `nextMatchToOpen`, `isChampion`.
+  - `participant-name.test.ts` (10): la validación de nombres se **extrajo** de la API route a `src/lib/validation/participant-name.ts` (`validateParticipantName` + `cleanParticipantNames`, puras y testeables) — cubre no-string, vacío/solo-espacios, trim, límite exacto de 100, excedido, duplicados conservados. La route ahora consume el módulo (mensajes/status idénticos).
+  - Los tests importan vía alias `@/` (prueba que la resolución de paths funciona). Deps nuevas: `vitest`, `vite`, `@vitejs/plugin-react`, `@vitest/ui`; `@types/node` bumped `^20 → ^22` (vitest 5 lo exige como peer: con `^20` el `npm install` limpio fallaba con ERESOLVE — ahora instala sin flags, clave para CI).
+  - Verificación: vitest 51/51 (exit 0), tsc 0, lint 0 (warning pre-existente), **suite fase 2 74/0** y **smoke CRUCES 31/0** re-corridos tras el refactor de la route (comportamiento intacto: vacío → 400, >100 → 400, válido → 200).
 - [ ] **19.** Setup Playwright + 1 flujo E2E completo: crear Mundialito → participantes → ítems → activar → votar → finalizar → ver resultados.
 
 ## Fase 5 — CI/CD y deploy
