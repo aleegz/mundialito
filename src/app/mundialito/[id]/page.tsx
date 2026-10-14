@@ -92,6 +92,14 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         </p>
       )}
 
+      {isOwner && isCruces && mundialito.status === "PARTICIPANTS_OPEN" && (
+        <p style={{ marginTop: "0.5rem" }}>
+          <Link href={`/vote/${id}`}>
+            Sumate como participante con tu nombre antes del sorteo →
+          </Link>
+        </p>
+      )}
+
       {isCruces && mundialito.status === "VOTING" && (
         <p style={{ marginTop: "0.5rem" }}>
           <Link href={`/vote/${id}`}>Ir a votar →</Link>

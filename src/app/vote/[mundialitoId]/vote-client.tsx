@@ -195,21 +195,27 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         window.localStorage.removeItem(storageKey(mundialitoId));
       }
 
-      const [itemsResult, participantResult] = await Promise.all([
-        supabase
-          .from("items")
-          .select("id, name, description")
-          .eq("mundialito_id", mundialitoId)
-          .order("created_at", { ascending: true }),
-        storedId
-          ? supabase
-              .from("participants")
-              .select("id, display_name")
-              .eq("id", storedId)
-              .eq("mundialito_id", mundialitoId)
-              .maybeSingle()
-          : null,
-      ]);
+      const [itemsResult, participantResult, participantsResult] =
+        await Promise.all([
+          supabase
+            .from("items")
+            .select("id, name, description")
+            .eq("mundialito_id", mundialitoId)
+            .order("created_at", { ascending: true }),
+          storedId
+            ? supabase
+                .from("participants")
+                .select("id, display_name")
+                .eq("id", storedId)
+                .eq("mundialito_id", mundialitoId)
+                .maybeSingle()
+            : null,
+          supabase
+            .from("participants")
+            .select("id, display_name")
+            .eq("mundialito_id", mundialitoId)
+            .order("display_name", { ascending: true }),
+        ]);
 
       if (cancelled) return;
 
@@ -228,6 +234,8 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       setMundialito(data);
       setItems(itemsResult.data ?? []);
+      // Lista de participantes para la "sala de espera" (identify).
+      setParticipants(participantsResult.data ?? []);
 
       if (me) {
         setSelectedId(me.id);
@@ -627,6 +635,46 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
             {submitting ? "Registrando…" : "Empezar a votar"}
           </button>
         </form>
+
+        {items.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            <p style={{ ...mutedStyle, fontWeight: 600 }}>
+              Vas a votar entre estos ítems:
+            </p>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: "0.5rem 0 0",
+                display: "grid",
+                gap: "0.35rem",
+              }}
+            >
+              {items.map((item) => (
+                <li key={item.id}>
+                  {item.name}
+                  {item.description && (
+                    <small style={mutedStyle}> — {item.description}</small>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {participants.length > 0 && (
+          <p
+            style={{
+              ...mutedStyle,
+              marginTop: "1.25rem",
+              fontSize: "0.9rem",
+            }}
+          >
+            Ya se sumaron {participants.length}{" "}
+            {participants.length === 1 ? "participante" : "participantes"}:{" "}
+            {participants.map((p) => p.display_name).join(", ")}.
+          </p>
+        )}
       </section>
     );
   }

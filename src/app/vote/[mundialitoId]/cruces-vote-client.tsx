@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/validation/uuid";
 import type { Database } from "@/types/database.types";
@@ -18,7 +18,28 @@ type Phase =
   | "identify"
   | "waiting"
   | "voting"
+  | "spectator"
   | "finished";
+
+/**
+ * Estado global del mundialito tal como lo ve este navegador.
+ * Tanto la carga inicial como el polling alimentan un mismo
+ * applySnapshot, y solo el snapshot decide la fase.
+ */
+type Snapshot = {
+  mundialito: Mundialito;
+  matches: Match[];
+  participants: Participant[];
+  me: Participant | null;
+};
+
+/**
+ * Polling del estado del torneo (feedback "resultados en tiempo real").
+ * Realtime no aporta nada acá: el voto es secreto mientras el cruce está
+ * OPEN (RLS bloquea la lectura), asi que lo unico que cambia en vivo es
+ * el bracket — y 5s de latencia son invisibles para un tablero de juego.
+ */
+const POLL_MS = 5000;
 
 /**
  * Identidad del votante (Opcion A: possession del participantId en
@@ -40,13 +61,35 @@ function voteStorageKey(matchId: string, voteRound: number): string {
   return `mundialito-cruce-vote:${matchId}:${voteRound}`;
 }
 
-const SUBCRIPTION_PHASE: Record<string, Phase> = {
-  PARTICIPANTS_OPEN: "identify",
-  PARTICIPANTS_LOCKED: "waiting",
-  DRAWN: "waiting",
-  VOTING: "voting",
-  FINISHED: "finished",
-};
+/**
+ * Fase segun el mundo. Regla de inscripcion: nadie se suma despues
+ * del sorteo (PARTICIPANTS_LOCKED cierra la puerta; VOTING sin
+ * identidad = espectador, no votante).
+ */
+function resolvePhase(
+  status: string,
+  matches: Match[],
+  me: Participant | null,
+): Phase {
+  switch (status) {
+    case "DRAFT":
+      return "draft";
+    case "PARTICIPANTS_OPEN":
+      return me ? "waiting" : "identify";
+    case "PARTICIPANTS_LOCKED":
+    case "DRAWN":
+      return "waiting";
+    case "VOTING": {
+      const open = matches.find((m) => m.status === "OPEN");
+      if (!me) return "spectator";
+      return open ? "voting" : "waiting";
+    }
+    case "FINISHED":
+      return "finished";
+    default:
+      return "notfound";
+  }
+}
 
 /**
  * Superficie del votante para modo CRUCES. A diferencia del RANKING
@@ -54,12 +97,16 @@ const SUBCRIPTION_PHASE: Record<string, Phase> = {
  * el cruce abierto + la identidad del votante.
  *
  * Estados:
- *   PARTICIPANTS_OPEN - identidad opcional, hay que registrarse para
- *                       poder votar luego; si ya hay identidad se
- *                       muestra "esperando el sorteo".
+ *   PARTICIPANTS_OPEN - identidad opcional: identificarse para votar,
+ *                       o mirar items / participantes mientras tanto.
  *   PARTICIPANTS_LOCKED / DRAWN - inscripcion cerrada / sorteo listo:
- *                       fase "waiting" (el owner da Iniciar).
- *   VOTING - cruce abierto A vs B; PUT /api/matches/[id]/vote.
+ *                       fase "waiting" (el owner da Iniciar). En DRAWN
+ *                       ya se ve el bracket sorteado.
+ *   VOTING - cruce abierto A vs B. Sin identidad -> espectador (la
+ *                       inscripcion cerro antes del sorteo): bracket
+ *                       en vivo. Con identidad y cruce abierto -> PUT
+ *                       /api/matches/[id]/vote. Entre rondas -> waiting
+ *                       con el bracket que ya resolvió.
  *   FINISHED - bracket completo con ganadores.
  */
 export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
@@ -67,6 +114,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [mundialito, setMundialito] = useState<Mundialito | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [me, setMe] = useState<Participant | null>(null);
   const [openMatch, setOpenMatch] = useState<Match | null>(null);
   // Eleccion local para el cruce abierto (A o B): itemId elegido.
@@ -76,6 +124,135 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Refs espejo de lo que el polling necesita sin closures viejas.
+  const phaseRef = useRef<Phase>("loading");
+  const worldKeyRef = useRef("");
+  const savingRef = useRef(false);
+  const refreshingRef = useRef(false);
+
+  const applySnapshot = useCallback((snap: Snapshot) => {
+    const open = snap.matches.find((m) => m.status === "OPEN") ?? null;
+    const key = `${snap.mundialito.status}:${open?.id ?? "-"}:${
+      open?.vote_round ?? 0
+    }:${snap.me?.id ?? "-"}`;
+
+    setParticipants(snap.participants);
+    setMatches(snap.matches);
+
+    // Mientras se esta votando y el mundo NO cambio (misma ronda, misma
+    // identidad): no pisar la eleccion a medio click ni forzar renders.
+    if (phaseRef.current === "voting" && key === worldKeyRef.current) {
+      return;
+    }
+
+    worldKeyRef.current = key;
+    phaseRef.current = resolvePhase(snap.mundialito.status, snap.matches, snap.me);
+    setMundialito(snap.mundialito);
+    setMe(snap.me);
+    setOpenMatch(open);
+
+    if (phaseRef.current === "voting" && open) {
+      // Restaurar la eleccion de ESTE cruce y ronda en localStorage.
+      const saved = window.localStorage.getItem(
+        voteStorageKey(open.id, open.vote_round),
+      );
+      if (saved && isUuid(saved) && (saved === open.item_a_id || saved === open.item_b_id)) {
+        setChoice(saved);
+        setSavedRound(open.vote_round);
+      } else {
+        if (saved) {
+          window.localStorage.removeItem(voteStorageKey(open.id, open.vote_round));
+        }
+        setChoice(null);
+        setSavedRound(null);
+      }
+    } else {
+      setChoice(null);
+      setSavedRound(null);
+    }
+
+    setPhase(phaseRef.current);
+  }, []);
+
+  /**
+   * Trae el mundo (mundialito + matches + participantes + identidad) y
+   * lo aplica. Devuelve false solo cuando el fetch falla. Los items son
+   * estaticos (se cargan una vez en el load inicial).
+   */
+  const refreshWorld = useCallback(async (): Promise<boolean> => {
+    // No refrescar mientras se esta enviando un voto / registro ni si
+    // otro refresh ya esta en vuelo (evita solaparse con el polling).
+    if (savingRef.current || refreshingRef.current) return true;
+
+    refreshingRef.current = true;
+    try {
+      const supabase = createClient();
+
+      const stored = window.localStorage.getItem(storageKey(mundialitoId));
+      const storedId = stored && isUuid(stored) ? stored : null;
+      if (stored && !storedId) {
+        window.localStorage.removeItem(storageKey(mundialitoId));
+      }
+
+      const [mResult, matchesResult, participantsResult, meResult] =
+        await Promise.all([
+          supabase
+            .from("mundialitos")
+            .select("*")
+            .eq("id", mundialitoId)
+            .maybeSingle(),
+          supabase
+            .from("matches")
+            .select("*")
+            .eq("mundialito_id", mundialitoId)
+            .order("round", { ascending: true })
+            .order("position", { ascending: true }),
+          supabase
+            .from("participants")
+            .select("*")
+            .eq("mundialito_id", mundialitoId)
+            .order("display_name", { ascending: true }),
+          storedId
+            ? supabase
+                .from("participants")
+                .select("*")
+                .eq("id", storedId)
+                .eq("mundialito_id", mundialitoId)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+
+      if (
+        mResult.error ||
+        matchesResult.error ||
+        participantsResult.error ||
+        meResult?.error ||
+        !mResult.data
+      ) {
+        return false;
+      }
+
+      // No pisar la pantalla draft con un snapshot de turno.
+      if (mResult.data.status === "DRAFT") return true;
+
+      const meRow = meResult?.data ?? null;
+      if (storedId && !meRow) {
+        window.localStorage.removeItem(storageKey(mundialitoId));
+      }
+
+      applySnapshot({
+        mundialito: mResult.data,
+        matches: matchesResult.data ?? [],
+        participants: participantsResult.data ?? [],
+        me: meRow,
+      });
+      return true;
+    } finally {
+      refreshingRef.current = false;
+    }
+  }, [mundialitoId, applySnapshot]);
+
+  // Carga inicial: validacion, items (una sola vez) y primer snapshot.
   useEffect(() => {
     let cancelled = false;
 
@@ -108,110 +285,82 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         return;
       }
 
-      setMundialito(data);
-
-      // Lectura identidad previa (localStorage).
-      const stored = window.localStorage.getItem(storageKey(mundialitoId));
-      const storedId = stored && isUuid(stored) ? stored : null;
-      if (stored && !storedId) {
-        window.localStorage.removeItem(storageKey(mundialitoId));
-      }
-
-      const [itemsResult, matchesResult, meResult] = await Promise.all([
-        supabase
-          .from("items")
-          .select("*")
-          .eq("mundialito_id", mundialitoId)
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("matches")
-          .select("*")
-          .eq("mundialito_id", mundialitoId)
-          .order("round", { ascending: true })
-          .order("position", { ascending: true }),
-        storedId
-          ? supabase
-              .from("participants")
-              .select("*")
-              .eq("id", storedId)
-              .eq("mundialito_id", mundialitoId)
-              .maybeSingle()
-          : null,
-      ]);
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("items")
+        .select("*")
+        .eq("mundialito_id", mundialitoId)
+        .order("created_at", { ascending: true });
 
       if (cancelled) return;
 
-      if (itemsResult.error || matchesResult.error || meResult?.error) {
+      if (itemsError) {
         setPhase("loaderror");
         return;
       }
 
-      const meRow = meResult?.data ?? null;
-      if (storedId && !meRow) {
-        window.localStorage.removeItem(storageKey(mundialitoId));
-      }
+      setItems(itemsData ?? []);
 
-      setItems(itemsResult.data ?? []);
-      setMatches(matchesResult.data ?? []);
-      setMe(meRow);
-
-      const phaseFor = SUBCRIPTION_PHASE[data.status];
-      if (!phaseFor) {
-        setPhase("notfound");
-        return;
-      }
-
-      if (phaseFor === "voting") {
-        const open = (matchesResult.data ?? []).find((m) => m.status === "OPEN");
-        setOpenMatch(open ?? null);
-
-        if (!open || !meRow) {
-          // Sin identidad o sin cruce abierto (entre rondas): esperar.
-          setPhase("waiting");
-          return;
-        }
-
-        // Restaurar la eleccion de ESTE cruce y ronda en localStorage.
-        const saved = window.localStorage.getItem(
-          voteStorageKey(open.id, open.vote_round),
-        );
-        if (saved && isUuid(saved)) {
-          const stillValid =
-            saved === open.item_a_id || saved === open.item_b_id;
-          if (stillValid) {
-            setChoice(saved);
-            setSavedRound(open.vote_round);
-          } else {
-            window.localStorage.removeItem(voteStorageKey(open.id, open.vote_round));
-          }
-        }
-
-        setPhase("voting");
-        return;
-      }
-
-      if (phaseFor === "identify" && meRow) {
-        // Ya registrado, la inscripcion sigue abierta: esperar sorteo.
-        setPhase("waiting");
-        return;
-      }
-
-      setPhase(phaseFor);
+      const ok = await refreshWorld();
+      if (cancelled) return;
+      if (!ok) setPhase("loaderror");
     }
 
     void load();
     return () => {
       cancelled = true;
     };
-  }, [mundialitoId]);
+  }, [mundialitoId, refreshWorld]);
+
+  // Polling: refresca el mundo cada POLL_MS mientras la pestana esta
+  // visible; pausa con document.hidden y retoma (con fetch inmediato)
+  // al volver. El snapshot detecta el cambio de ronda y auto-avanza.
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (timer) return;
+      void refreshWorld();
+      timer = setInterval(() => {
+        void refreshWorld();
+      }, POLL_MS);
+    };
+
+    const stop = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        start();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    start();
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshWorld]);
 
   // ------------------------------------------------------------
   // Auto-registro (PARTICIPANTS_OPEN): mismo contrato que vote-client.
   // ------------------------------------------------------------
   async function onIdentify(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (savingRef.current) return;
+
     setSaving(true);
+    savingRef.current = true;
     setError(null);
+
+    let registered = false;
 
     try {
       const response = await fetch("/api/participants", {
@@ -227,7 +376,6 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       if (!response.ok || !data.participant) {
         setError(data.error ?? "No se pudo registrar tu nombre.");
-        setSaving(false);
         return;
       }
 
@@ -235,25 +383,18 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         storageKey(mundialitoId),
         data.participant.id,
       );
-      setSaving(false);
       setNameInput("");
-      // Identidad creada: pasar a "waiting" (hay que esperar el sorteo).
-      setPhase(
-        mundialito?.status === "PARTICIPANTS_OPEN"
-          ? "waiting"
-          : "identify",
-      );
-      setMe({
-        id: data.participant.id,
-        mundialito_id: mundialitoId,
-        display_name: data.participant.display_name,
-        auth_user_id: null,
-        status: "JOINED",
-        created_at: new Date().toISOString(),
-      } as Participant);
+      registered = true;
     } catch {
       setError("No se pudo registrar tu nombre.");
+    } finally {
       setSaving(false);
+      savingRef.current = false;
+    }
+
+    // Re-resolver con la identidad nueva (esperando sorteo / votando).
+    if (registered) {
+      void refreshWorld();
     }
   }
 
@@ -261,9 +402,10 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Voto A/B (VOTING).
   // ------------------------------------------------------------
   async function onVote(itemId: string) {
-    if (!openMatch || !me) return;
+    if (!openMatch || !me || savingRef.current) return;
 
     setSaving(true);
+    savingRef.current = true;
     setError(null);
 
     try {
@@ -285,7 +427,6 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       if (!response.ok || !data.saved) {
         setError(data.error ?? "No se pudo guardar tu voto.");
-        setSaving(false);
         return;
       }
 
@@ -295,19 +436,20 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       );
       setChoice(itemId);
       setSavedRound(openMatch.vote_round);
-      setSaving(false);
     } catch {
       setError("No se pudo guardar tu voto.");
+    } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   }
 
   function onSwitchIdentity() {
     window.localStorage.removeItem(storageKey(mundialitoId));
-    setMe(null);
+    worldKeyRef.current = ""; // forzar re-resolucion (me = null)
     setChoice(null);
     setSavedRound(null);
-    setPhase(SUBCRIPTION_PHASE[mundialito?.status ?? ""] ?? "identify");
+    void refreshWorld();
   }
 
   // ------------------------------------------------------------
@@ -335,37 +477,89 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
   if (phase === "identify") {
     return (
-      <form onSubmit={onIdentify} style={{ display: "grid", gap: "0.75rem" }}>
-        <label style={{ display: "grid", gap: "0.25rem" }}>
-          <small style={{ color: "#666" }}>Tu nombre</small>
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            maxLength={100}
-            required
-            style={{
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "0.35rem",
-            }}
-          />
-        </label>
-        {error && <small style={{ color: "crimson" }}>{error}</small>}
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            padding: "0.5rem",
-            background: "#0f766e",
-            color: "white",
-            border: "none",
-            borderRadius: "0.35rem",
-            cursor: "pointer",
-          }}
+      <section style={{ display: "grid", gap: "1rem" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>{mundialito?.name ?? "Mundialito"}</h2>
+          <p style={{ margin: 0, color: "#666" }}>
+            Sumate con tu nombre antes del sorteo. Después ya no se aceptan
+            participantes.
+          </p>
+        </div>
+
+        <form
+          onSubmit={onIdentify}
+          style={{ display: "grid", gap: "0.75rem", maxWidth: 360 }}
         >
-          {saving ? "..." : "Sumarme"}
-        </button>
-      </form>
+          <label style={{ display: "grid", gap: "0.25rem" }}>
+            <small style={{ color: "#666" }}>Tu nombre</small>
+            <input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              maxLength={100}
+              required
+              style={{
+                padding: "0.5rem",
+                border: "1px solid #ccc",
+                borderRadius: "0.35rem",
+                boxSizing: "border-box",
+                fontSize: "1rem",
+              }}
+            />
+          </label>
+          {error && <small style={{ color: "crimson" }}>{error}</small>}
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              padding: "0.6rem",
+              background: "#0f766e",
+              color: "white",
+              border: "none",
+              borderRadius: "0.35rem",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            {saving ? "…" : "Sumarme"}
+          </button>
+        </form>
+
+        {items.length > 0 && (
+          <div>
+            <p style={{ margin: 0, fontWeight: 600 }}>Se vota así:</p>
+            <p style={{ margin: 0, color: "#666" }}>
+              Cada cruce enfrenta dos ítems (A vs B) y avanza el que gana,
+              hasta el campeón.
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0.5rem 0 0" }}>
+              {items.map((item) => (
+                <li key={item.id} style={{ padding: "0.25rem 0" }}>
+                  {item.name}
+                  {item.description && (
+                    <small style={{ color: "#888" }}> — {item.description}</small>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <ParticipantsPanel participants={participants} />
+      </section>
+    );
+  }
+
+  if (phase === "spectator") {
+    return (
+      <section style={{ display: "grid", gap: "0.75rem" }}>
+        <h2 style={{ margin: 0 }}>Seguí el torneo en vivo</h2>
+        <p style={{ margin: 0, color: "#666" }}>
+          La inscripción está cerrada: no se puede sumar quien no se registró
+          antes del sorteo. Mirá cómo avanza el bracket mientras tanto.
+        </p>
+        <BracketViewInline matches={matches} items={items} />
+        <ParticipantsPanel participants={participants} />
+      </section>
     );
   }
 
@@ -375,22 +569,50 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         <p style={{ margin: 0 }}>
           {me
             ? `Listo, ${me.display_name}.`
-            : "Vas a poder votar cuando empiece la votación."}
+            : "La votación está por arrancar."}
         </p>
         <p style={{ margin: 0, color: "#666" }}>
           {mundialito?.status === "PARTICIPANTS_OPEN" &&
-            "La inscripción está abierta."}
+            "La inscripción sigue abierta hasta el sorteo."}
           {mundialito?.status === "PARTICIPANTS_LOCKED" &&
             "La inscripción está cerrada; el sorteo se viene."}
           {mundialito?.status === "DRAWN" &&
             "El bracket está listo; el owner va a iniciar la votación."}
           {mundialito?.status === "VOTING" &&
-            "Hay una ronda en curso. Esperá un momento…"}
+            "Esperando el próximo cruce. Mirá el bracket mientras tanto:"}
         </p>
+
+        {matches.length > 0 && (
+          <BracketViewInline matches={matches} items={items} />
+        )}
+
+        {mundialito?.status === "PARTICIPANTS_OPEN" && items.length > 0 && (
+          <div>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              Se vota entre estos ítems:
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0.25rem 0 0" }}>
+              {items.map((item) => (
+                <li key={item.id} style={{ padding: "0.2rem 0" }}>
+                  {item.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <ParticipantsPanel participants={participants} />
+
         {me && (
-          <button type="button" onClick={onSwitchIdentity} style={linkButtonStyle}>
-            Cambiar de nombre
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={onSwitchIdentity}
+              style={linkButtonStyle}
+            >
+              Cambiar de nombre
+            </button>
+          </div>
         )}
         {error && <small style={{ color: "crimson" }}>{error}</small>}
       </div>
@@ -411,11 +633,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     const alreadyVoted = savedRound === openMatch.vote_round && choice !== null;
 
     return (
-      <div style={{ display: "grid", gap: "1rem" }}>
-        <p style={{ margin: 0, color: "#666" }}>
-          Cruce {openMatch.round}.{openMatch.position + 1}
-          {openMatch.vote_round > 1 && ` · desempate ${openMatch.vote_round}`}
-        </p>
+      <section style={{ display: "grid", gap: "1rem" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>{mundialito?.name ?? "Mundialito"}</h2>
+          <p style={{ margin: 0, color: "#666" }}>
+            Cruce {openMatch.round}.{openMatch.position + 1}
+            {openMatch.vote_round > 1 && ` · desempate ${openMatch.vote_round}`}
+          </p>
+        </div>
 
         <div style={{ display: "grid", gap: "0.5rem" }}>
           {slotItems.map((itemId, index) => {
@@ -436,6 +661,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
                   background: selected ? "#ecfdf5" : "white",
                   cursor: alreadyVoted && !selected ? "default" : "pointer",
                   textAlign: "left",
+                  fontSize: "1rem",
                 }}
               >
                 {index === 0 ? "A" : "B"}: {name}
@@ -450,24 +676,35 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             disabled={saving}
             onClick={() => onVote(choice)}
             style={{
-              padding: "0.5rem",
+              padding: "0.6rem",
               background: "#0f766e",
               color: "white",
               border: "none",
               borderRadius: "0.35rem",
               cursor: "pointer",
+              fontSize: "1rem",
+              width: "fit-content",
             }}
           >
-            {saving ? "..." : "Votar"}
+            {saving ? "…" : "Votar"}
           </button>
         )}
 
         {alreadyVoted && (
-          <p style={{ margin: 0, color: "#0f766e" }}>Voto guardado ✅</p>
+          <p style={{ margin: 0, color: "#0f766e", fontWeight: 600 }}>
+            Voto guardado ✅ Esperá al resto y mirá el bracket:
+          </p>
         )}
 
         {error && <small style={{ color: "crimson" }}>{error}</small>}
-      </div>
+
+        {matches.length > 0 && (
+          <div>
+            <p style={{ margin: 0, fontWeight: 600 }}>Bracket</p>
+            <BracketViewInline matches={matches} items={items} />
+          </div>
+        )}
+      </section>
     );
   }
 
@@ -477,6 +714,26 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       <h2>Resultados</h2>
       <BracketViewInline matches={matches} items={items} />
     </div>
+  );
+}
+
+/**
+ * Lista de participantes ya anotados ("sala de espera").
+ * Solo muestra los JOINED; los EXCLUDED del owner no se listan.
+ */
+function ParticipantsPanel({ participants }: { participants: Participant[] }) {
+  const joined = participants.filter((p) => p.status === "JOINED");
+
+  if (joined.length === 0) {
+    return null;
+  }
+
+  return (
+    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
+      Ya se sumaron {joined.length}{" "}
+      {joined.length === 1 ? "participante" : "participantes"}:{" "}
+      {joined.map((p) => p.display_name).join(", ")}.
+    </p>
   );
 }
 
