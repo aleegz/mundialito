@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MODE_DESCRIPTION } from "@/lib/ui/labels";
 
 type Props = {
   mundialitoId: string;
@@ -11,6 +12,11 @@ type Props = {
   initialMode: "RANKING" | "CRUCES" | null;
 };
 
+/**
+ * Edicion del nombre, la descripcion y (solo en DRAFT) el modo.
+ * El form vive plegado detras de un boton para no cargar el panel del
+ * owner cuando no se esta editando.
+ */
 export function EditMundialitoForm({
   mundialitoId,
   initialName,
@@ -75,170 +81,114 @@ export function EditMundialitoForm({
   }
 
   return (
-    <section style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
-      <button
-        type="button"
-        onClick={() => {
-          setExpanded(!expanded);
-          setError(null);
-          setSuccess(false);
-        }}
-        style={{
-          ...buttonSecondaryStyle,
-          padding: "0.5rem 0.75rem",
-          fontSize: "0.95rem",
-        }}
-      >
-        {expanded ? "Cancelar edición" : "Editar Mundialito"}
-      </button>
+    <section className="card card-pad mt-6" aria-label="Detalles del torneo">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="h3">Detalles del torneo</h2>
+          <p className="hint mt-1">Nombre, descripción y modo de competición.</p>
+        </div>
 
-      {expanded && (
-        <form
-          onSubmit={onSubmit}
-          style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(!expanded);
+            setError(null);
+            setSuccess(false);
+          }}
+          className="btn btn-secondary btn-sm"
         >
-          <label style={labelStyle}>
-            Nombre
+          {expanded ? "Cancelar edición" : "Editar Mundialito"}
+        </button>
+      </div>
+
+      {expanded ? (
+        <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          <div className="field">
+            <label className="label" htmlFor="edit-name">
+              Nombre
+            </label>
             <input
+              id="edit-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={100}
               required
               autoFocus
-              style={inputStyle}
+              className="input"
             />
-          </label>
+          </div>
 
-          <label style={labelStyle}>
-            Descripción <span style={{ color: "#999" }}>(opcional)</span>
+          <div className="field">
+            <label className="label" htmlFor="edit-description">
+              Descripción{" "}
+              <span className="font-normal text-subtle">(opcional)</span>
+            </label>
             <textarea
+              id="edit-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              style={inputStyle}
+              className="textarea"
             />
-          </label>
+          </div>
 
-          {initialMode !== null && (
-            <fieldset style={fieldsetStyle}>
-              <legend style={legendStyle}>Modo de competición</legend>
+          {initialMode !== null ? (
+            <fieldset className="space-y-3 border-0 p-0">
+              <legend className="label mb-1">Modo de competición</legend>
 
-              <label style={radioStyle}>
+              <label className="choice items-start justify-start text-left">
                 <input
                   type="radio"
                   name="mode"
                   checked={mode === "RANKING"}
                   onChange={() => setMode("RANKING")}
+                  className="sr-only"
                 />
-                <span>
-                  <strong>Ranking 1–10</strong>
-                  <small style={smallStyle}>
-                    Cada participante puntúa todos los ítems; gana el mejor promedio.
-                  </small>
+                <span className="flex flex-col gap-1">
+                  <span className="font-semibold">Ranking del 1 al 10</span>
+                  <span className="hint">{MODE_DESCRIPTION.RANKING}</span>
                 </span>
               </label>
 
-              <label style={radioStyle}>
+              <label className="choice items-start justify-start text-left">
                 <input
                   type="radio"
                   name="mode"
                   checked={mode === "CRUCES"}
                   onChange={() => setMode("CRUCES")}
+                  className="sr-only"
                 />
-                <span>
-                  <strong>Eliminación directa</strong>
-                  <small style={smallStyle}>
-                    Los ítems se cruzan de a dos y el ganador avanza. Necesita 4, 8, 16 o 32 ítems.
-                  </small>
+                <span className="flex flex-col gap-1">
+                  <span className="font-semibold">Eliminación directa</span>
+                  <span className="hint">{MODE_DESCRIPTION.CRUCES}</span>
+                  <span className="hint">Requiere 4, 8, 16 o 32 ítems.</span>
                 </span>
               </label>
             </fieldset>
-          )}
+          ) : null}
 
-          {error && <p style={errorStyle}>{error}</p>}
-          {success && <p style={successStyle}>¡Guardado!</p>}
+          {error ? (
+            <p className="alert alert-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
 
-          <button type="submit" disabled={pending} style={buttonStyle}>
-            {pending ? "Guardando..." : "Guardar"}
+          {success ? (
+            <p className="alert alert-success" role="status">
+              ¡Listo! Guardamos los cambios.
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="btn btn-primary btn-block"
+          >
+            {pending ? "Guardando…" : "Guardar cambios"}
           </button>
         </form>
-      )}
+      ) : null}
     </section>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
-
-const buttonSecondaryStyle: React.CSSProperties = {
-  background: "white",
-  color: "black",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  cursor: "pointer",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "crimson",
-  fontSize: "0.9rem",
-  margin: 0,
-};
-
-const successStyle: React.CSSProperties = {
-  color: "#0f766e",
-  fontSize: "0.9rem",
-  margin: 0,
-};
-
-const fieldsetStyle: React.CSSProperties = {
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  padding: "0.75rem 1rem",
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const legendStyle: React.CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const radioStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  alignItems: "flex-start",
-  fontSize: "0.95rem",
-  cursor: "pointer",
-};
-
-const smallStyle: React.CSSProperties = {
-  display: "block",
-  color: "#666",
-  fontSize: "0.8rem",
-  marginTop: "0.15rem",
-};

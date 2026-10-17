@@ -66,63 +66,41 @@ export function AddItemsForm({ mundialitoId, isDraft }: Props) {
 
   if (!isDraft) {
     return (
-      <p style={{ color: "#888" }}>
-        La lista de items no se puede modificar en este estado.
+      <p className="hint">
+        La lista de ítems no se puede modificar en este estado.
       </p>
     );
   }
 
   return (
-    <form action={onSubmit} style={{ display: "grid", gap: "0.75rem" }}>
-      <label style={labelStyle}>
-        Items{" "}
-        <span style={{ color: "#999", fontWeight: "400" }}>(uno por línea)</span>
+    <form action={onSubmit} className="space-y-3">
+      <div className="field">
+        <label className="label" htmlFor="items-names">
+          Ítems <span className="font-normal text-subtle">(uno por línea)</span>
+        </label>
         <textarea
+          id="items-names"
           ref={formRef}
           name="names"
           rows={5}
           placeholder={"Havanna\nCachafaz\nJorgito"}
-          style={inputStyle}
+          className="textarea"
         />
-      </label>
+      </div>
 
-      {error && <p style={errorStyle}>{error}</p>}
+      {error ? (
+        <p className="alert alert-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-      <button type="submit" disabled={pending} style={buttonStyle}>
-        {pending ? "Agregando..." : "Agregar items"}
+      <button
+        type="submit"
+        disabled={pending}
+        className="btn btn-primary btn-block"
+      >
+        {pending ? "Agregando…" : "Agregar ítems"}
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "crimson",
-  fontSize: "0.9rem",
-};

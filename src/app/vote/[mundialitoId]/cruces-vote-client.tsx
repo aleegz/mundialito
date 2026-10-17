@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/validation/uuid";
 import type { Database } from "@/types/database.types";
+import { Bracket } from "@/components/bracket";
 
 type Mundialito = Database["public"]["Tables"]["mundialitos"]["Row"];
 type Participant = Database["public"]["Tables"]["participants"]["Row"];
@@ -456,176 +457,226 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Render.
   // ------------------------------------------------------------
   if (phase === "loading") {
-    return <p>Cargando…</p>;
+    return (
+      <div
+        className="card card-pad animate-pulse"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <span className="sr-only">Cargando la votación…</span>
+        <div className="h-6 w-2/3 rounded-lg bg-sunken" />
+        <div className="mt-3 h-4 w-1/2 rounded-lg bg-sunken" />
+      </div>
+    );
   }
 
   if (phase === "notfound") {
-    return <p style={{ color: "#666" }}>Mundialito no encontrado.</p>;
+    return (
+      <div className="empty">
+        <p className="h3">No encontramos este torneo</p>
+        <p className="hint">
+          Revisá el enlace que te compartieron e intentá de nuevo.
+        </p>
+      </div>
+    );
   }
 
   if (phase === "loaderror") {
-    return <p style={{ color: "crimson" }}>No se pudo cargar la votación.</p>;
+    return (
+      <div className="empty">
+        <p className="h3">No pudimos cargar la votación</p>
+        <p className="hint">Intentá de nuevo en unos minutos.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn btn-secondary mt-3"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
   }
 
   if (phase === "draft") {
     return (
-      <p style={{ color: "#666" }}>
-        Este Mundialito todavía no está abierto para votar.
-      </p>
+      <div className="empty">
+        <p className="h3">Todavía no está abierto</p>
+        <p className="hint">
+          Este Mundialito todavía no está abierto para votar. Recargá la página
+          más tarde.
+        </p>
+      </div>
     );
   }
 
   if (phase === "identify") {
     return (
-      <section style={{ display: "grid", gap: "1rem" }}>
-        <div>
-          <h2 style={{ margin: 0 }}>{mundialito?.name ?? "Mundialito"}</h2>
-          <p style={{ margin: 0, color: "#666" }}>
-            Sumate con tu nombre antes del sorteo. Después ya no se aceptan
-            participantes.
-          </p>
-        </div>
+      <section>
+        <p className="eyebrow">Inscripción</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+        <p className="lead mt-2">
+          Sumate con tu nombre antes del sorteo. Después ya no se aceptan
+          participantes.
+        </p>
 
-        <form
-          onSubmit={onIdentify}
-          style={{ display: "grid", gap: "0.75rem", maxWidth: 360 }}
-        >
-          <label style={{ display: "grid", gap: "0.25rem" }}>
-            <small style={{ color: "#666" }}>Tu nombre</small>
+        <form onSubmit={onIdentify} className="card card-pad mt-6 space-y-4">
+          <div className="field">
+            <label className="label" htmlFor="cruces-name">
+              Tu nombre
+            </label>
             <input
+              id="cruces-name"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
               maxLength={100}
               required
-              style={{
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "0.35rem",
-                boxSizing: "border-box",
-                fontSize: "1rem",
-              }}
+              autoComplete="name"
+              className="input"
             />
-          </label>
-          {error && <small style={{ color: "crimson" }}>{error}</small>}
+          </div>
+
+          {error && (
+            <p className="alert alert-danger" role="alert">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={saving}
-            style={{
-              padding: "0.6rem",
-              background: "#0f766e",
-              color: "white",
-              border: "none",
-              borderRadius: "0.35rem",
-              cursor: "pointer",
-              fontSize: "1rem",
-            }}
+            className="btn btn-primary btn-block btn-lg"
           >
-            {saving ? "…" : "Sumarme"}
+            {saving ? "Sumándote…" : "Sumarme"}
           </button>
         </form>
 
-        {items.length > 0 && (
-          <div>
-            <p style={{ margin: 0, fontWeight: 600 }}>Se vota así:</p>
-            <p style={{ margin: 0, color: "#666" }}>
-              Cada cruce enfrenta dos ítems (A vs B) y avanza el que gana,
-              hasta el campeón.
-            </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0.5rem 0 0" }}>
-              {items.map((item) => (
-                <li key={item.id} style={{ padding: "0.25rem 0" }}>
-                  {item.name}
-                  {item.description && (
-                    <small style={{ color: "#888" }}> — {item.description}</small>
-                  )}
-                </li>
-              ))}
-            </ul>
+        {/* La invitacion pide el nombre y nada mas: listar los items
+            aca es ruido antes de sumarse (el detalle aparece en la
+            sala de espera y en el bracket). */}
+        {participants.length > 0 && (
+          <div className="mt-4">
+            <ParticipantsPanel participants={participants} />
           </div>
         )}
-
-        <ParticipantsPanel participants={participants} />
       </section>
     );
   }
 
   if (phase === "spectator") {
     return (
-      <section style={{ display: "grid", gap: "0.75rem" }}>
-        <h2 style={{ margin: 0 }}>Seguí el torneo en vivo</h2>
-        <p style={{ margin: 0, color: "#666" }}>
+      <section>
+        <p className="eyebrow">Seguí el torneo</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+        <p className="lead mt-2">
           La inscripción está cerrada: no se puede sumar quien no se registró
           antes del sorteo. Mirá cómo avanza el bracket mientras tanto.
         </p>
-        <BracketViewInline matches={matches} items={items} />
-        <ParticipantsPanel participants={participants} />
+
+        <div className="mt-6">
+          <Bracket
+            matches={matches}
+            items={items}
+            status={mundialito?.status}
+          />
+        </div>
+
+        <div className="mt-4">
+          <ParticipantsPanel participants={participants} />
+        </div>
       </section>
     );
   }
 
   if (phase === "waiting") {
     return (
-      <div style={{ display: "grid", gap: "0.75rem" }}>
-        <p style={{ margin: 0 }}>
-          {me
-            ? `Listo, ${me.display_name}.`
-            : "La votación está por arrancar."}
-        </p>
-        <p style={{ margin: 0, color: "#666" }}>
-          {mundialito?.status === "PARTICIPANTS_OPEN" &&
-            "La inscripción sigue abierta hasta el sorteo."}
-          {mundialito?.status === "PARTICIPANTS_LOCKED" &&
-            "La inscripción está cerrada; el sorteo se viene."}
-          {mundialito?.status === "DRAWN" &&
-            "El bracket está listo; el owner va a iniciar la votación."}
-          {mundialito?.status === "VOTING" &&
-            "Esperando el próximo cruce. Mirá el bracket mientras tanto:"}
-        </p>
+      <section>
+        <p className="eyebrow">Sala de espera</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+
+        <div className="card card-pad mt-4">
+          <p className="h3">
+            {me
+              ? `Listo, ${me.display_name}.`
+              : "La votación está por arrancar."}
+          </p>
+          <p className="hint mt-1">
+            {mundialito?.status === "PARTICIPANTS_OPEN" &&
+              "La inscripción sigue abierta hasta el sorteo."}
+            {mundialito?.status === "PARTICIPANTS_LOCKED" &&
+              "La inscripción está cerrada; el sorteo se viene."}
+            {mundialito?.status === "DRAWN" &&
+              "El bracket está listo; el owner va a iniciar la votación."}
+            {mundialito?.status === "VOTING" &&
+              "Esperando el próximo cruce. Mirá el bracket mientras tanto:"}
+          </p>
+
+          {mundialito?.status === "PARTICIPANTS_OPEN" && items.length > 0 && (
+            <>
+              <p className="label mt-4">Se vota entre estos ítems</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {items.map((item) => (
+                  <li key={item.id}>{item.name}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {me && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onSwitchIdentity}
+                className="btn btn-ghost btn-sm"
+              >
+                Cambiar de nombre
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <p className="alert alert-danger mt-4" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
 
         {matches.length > 0 && (
-          <BracketViewInline matches={matches} items={items} />
-        )}
-
-        {mundialito?.status === "PARTICIPANTS_OPEN" && items.length > 0 && (
-          <div>
-            <p style={{ margin: 0, fontWeight: 600 }}>
-              Se vota entre estos ítems:
-            </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0.25rem 0 0" }}>
-              {items.map((item) => (
-                <li key={item.id} style={{ padding: "0.2rem 0" }}>
-                  {item.name}
-                </li>
-              ))}
-            </ul>
+          <div className="mt-4">
+            <Bracket
+              matches={matches}
+              items={items}
+              status={mundialito?.status}
+            />
           </div>
         )}
 
-        <ParticipantsPanel participants={participants} />
-
-        {me && (
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={onSwitchIdentity}
-              style={linkButtonStyle}
-            >
-              Cambiar de nombre
-            </button>
-          </div>
-        )}
-        {error && <small style={{ color: "crimson" }}>{error}</small>}
-      </div>
+        <div className="mt-4">
+          <ParticipantsPanel participants={participants} />
+        </div>
+      </section>
     );
   }
 
   if (phase === "voting") {
     if (!openMatch) {
       return (
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          <p style={{ margin: 0 }}>Esperando el próximo cruce…</p>
-          <BracketViewInline matches={matches} items={items} />
-        </div>
+        <section>
+          <p className="eyebrow">Esperando</p>
+          <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+          <p className="lead mt-2">
+            Esperando el próximo cruce… Esta pantalla se actualiza sola.
+          </p>
+
+          {matches.length > 0 && (
+            <div className="mt-6">
+              <Bracket
+                matches={matches}
+                items={items}
+                status={mundialito?.status}
+              />
+            </div>
+          )}
+        </section>
       );
     }
 
@@ -633,38 +684,43 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     const alreadyVoted = savedRound === openMatch.vote_round && choice !== null;
 
     return (
-      <section style={{ display: "grid", gap: "1rem" }}>
-        <div>
-          <h2 style={{ margin: 0 }}>{mundialito?.name ?? "Mundialito"}</h2>
-          <p style={{ margin: 0, color: "#666" }}>
-            Cruce {openMatch.round}.{openMatch.position + 1}
-            {openMatch.vote_round > 1 && ` · desempate ${openMatch.vote_round}`}
-          </p>
-        </div>
+      <section>
+        <p className="eyebrow">
+          Cruce {openMatch.round}.{openMatch.position + 1}
+          {openMatch.vote_round > 1
+            ? ` · desempate ${openMatch.vote_round}`
+            : ""}
+        </p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+        <p className="lead mt-2">
+          {alreadyVoted
+            ? "Voto guardado. Esperá al resto: esta pantalla se actualiza sola."
+            : "Elegí cuál de los dos pasa de ronda."}
+        </p>
 
-        <div style={{ display: "grid", gap: "0.5rem" }}>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {slotItems.map((itemId, index) => {
             if (!itemId) return null;
+
             const name = items.find((i) => i.id === itemId)?.name ?? "—";
             const selected = choice === itemId;
+            const locked = alreadyVoted && !selected;
 
             return (
               <button
                 key={itemId}
                 type="button"
-                disabled={alreadyVoted && !selected}
+                disabled={locked}
                 onClick={() => setChoice(itemId)}
-                style={{
-                  padding: "0.75rem",
-                  border: selected ? "2px solid #0f766e" : "1px solid #ccc",
-                  borderRadius: "0.5rem",
-                  background: selected ? "#ecfdf5" : "white",
-                  cursor: alreadyVoted && !selected ? "default" : "pointer",
-                  textAlign: "left",
-                  fontSize: "1rem",
-                }}
+                aria-pressed={selected}
+                className={`choice min-h-[4.5rem] flex-col items-start gap-1 p-4 text-left ${
+                  selected ? "choice-selected" : ""
+                }`}
               >
-                {index === 0 ? "A" : "B"}: {name}
+                <span className="text-xs font-bold tracking-widest text-subtle">
+                  Opción {index === 0 ? "A" : "B"}
+                </span>
+                <span className="text-base font-semibold">{name}</span>
               </button>
             );
           })}
@@ -675,33 +731,34 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             type="button"
             disabled={saving}
             onClick={() => onVote(choice)}
-            style={{
-              padding: "0.6rem",
-              background: "#0f766e",
-              color: "white",
-              border: "none",
-              borderRadius: "0.35rem",
-              cursor: "pointer",
-              fontSize: "1rem",
-              width: "fit-content",
-            }}
+            className="btn btn-primary btn-block btn-lg mt-4"
           >
-            {saving ? "…" : "Votar"}
+            {saving ? "Enviando…" : "Confirmar voto"}
           </button>
         )}
 
         {alreadyVoted && (
-          <p style={{ margin: 0, color: "#0f766e", fontWeight: 600 }}>
-            Voto guardado ✅ Esperá al resto y mirá el bracket:
+          <p className="alert alert-success mt-4" role="status">
+            Voto guardado ✅ Esperá al resto y mirá el bracket.
           </p>
         )}
 
-        {error && <small style={{ color: "crimson" }}>{error}</small>}
+        {error && (
+          <p className="alert alert-danger mt-4" role="alert">
+            {error}
+          </p>
+        )}
 
         {matches.length > 0 && (
-          <div>
-            <p style={{ margin: 0, fontWeight: 600 }}>Bracket</p>
-            <BracketViewInline matches={matches} items={items} />
+          <div className="mt-8">
+            <h2 className="h2">Bracket</h2>
+            <div className="mt-3">
+              <Bracket
+                matches={matches}
+                items={items}
+                status={mundialito?.status}
+              />
+            </div>
           </div>
         )}
       </section>
@@ -710,10 +767,18 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
   // FINISHED: bracket completo con ganadores.
   return (
-    <div style={{ display: "grid", gap: "1rem" }}>
-      <h2>Resultados</h2>
-      <BracketViewInline matches={matches} items={items} />
-    </div>
+    <section>
+      <p className="eyebrow">Resultados</p>
+      <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+      <p className="lead mt-2">
+        El torneo terminó. Este es el bracket completo con los ganadores
+        marcados.
+      </p>
+
+      <div className="mt-6">
+        <Bracket matches={matches} items={items} status={mundialito?.status} />
+      </div>
+    </section>
   );
 }
 
@@ -729,132 +794,14 @@ function ParticipantsPanel({ participants }: { participants: Participant[] }) {
   }
 
   return (
-    <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
-      Ya se sumaron {joined.length}{" "}
-      {joined.length === 1 ? "participante" : "participantes"}:{" "}
-      {joined.map((p) => p.display_name).join(", ")}.
-    </p>
-  );
-}
-
-/**
- * Presentacion del bracket (misma visual que BracketView del panel
- * del owner): llaves por ronda con ganador resaltado.
- */
-function BracketViewInline({
-  matches,
-  items,
-}: {
-  matches: Match[];
-  items: Item[];
-}) {
-  if (!matches.length) {
-    return <p style={{ color: "#888" }}>Todavía no se sorteó el bracket.</p>;
-  }
-
-  const itemName = (id: string | null): string => {
-    if (!id) return "—";
-    return items.find((i) => i.id === id)?.name ?? "—";
-  };
-
-  const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b);
-
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${rounds.length}, minmax(0, 1fr))`,
-        gap: "0.5rem",
-        overflowX: "auto",
-      }}
-    >
-      {rounds.map((round) => {
-        const roundMatches = matches
-          .filter((m) => m.round === round)
-          .sort((a, b) => a.position - b.position);
-
-        return (
-          <div
-            key={round}
-            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: "0.85rem",
-                color: "#666",
-                textAlign: "center",
-              }}
-            >
-              {round === 1
-                ? "Primera ronda"
-                : round === rounds.length
-                  ? "Final"
-                  : `Ronda ${round}`}
-            </h3>
-
-            {roundMatches.map((match) => {
-              const isOpen = match.status === "OPEN";
-              const winner = match.winner_item_id;
-
-              return (
-                <div
-                  key={match.id}
-                  style={{
-                    border: isOpen ? "2px solid #f59e0b" : "1px solid #ddd",
-                    borderRadius: "0.5rem",
-                    padding: "0.5rem 0.75rem",
-                    background: isOpen ? "#fffbeb" : "white",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  {isOpen && (
-                    <small style={{ color: "#b45309", fontWeight: 600 }}>
-                      Abierto
-                      {match.vote_round > 1 && ` · desempate ${match.vote_round}`}
-                    </small>
-                  )}
-
-                  <div
-                    style={{
-                      padding: "0.25rem 0",
-                      color: winner === match.item_a_id ? "#047857" : "inherit",
-                      fontWeight: winner === match.item_a_id ? 600 : 400,
-                    }}
-                  >
-                    {itemName(match.item_a_id)}
-                  </div>
-
-                  <div style={{ color: "#bbb", fontSize: "0.75rem", lineHeight: 1 }}>
-                    ─
-                  </div>
-
-                  <div
-                    style={{
-                      padding: "0.25rem 0",
-                      color: winner === match.item_b_id ? "#047857" : "inherit",
-                      fontWeight: winner === match.item_b_id ? 600 : 400,
-                    }}
-                  >
-                    {itemName(match.item_b_id)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+    <div className="card card-pad">
+      <p className="h3">
+        Ya se sumaron {joined.length}{" "}
+        {joined.length === 1 ? "participante" : "participantes"}
+      </p>
+      <p className="hint mt-1">
+        {joined.map((p) => p.display_name).join(", ")}.
+      </p>
     </div>
   );
 }
-
-const linkButtonStyle: React.CSSProperties = {
-  padding: "0.35rem 0.75rem",
-  background: "white",
-  color: "black",
-  border: "1px solid #ccc",
-  borderRadius: "0.35rem",
-  fontSize: "0.85rem",
-  cursor: "pointer",
-  width: "fit-content",
-};

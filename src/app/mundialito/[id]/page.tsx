@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
+import { modeMeta, statusMeta } from "@/lib/ui/labels";
 import { AddParticipantsForm } from "./participants-form";
 import { DeleteParticipantButton } from "./delete-participant-button";
 import { ToggleParticipantStatusButton } from "./toggle-participant-status-button";
@@ -8,11 +11,13 @@ import { AddItemsForm } from "./items-form";
 import { DeleteItemButton } from "./delete-item-button";
 import { StatusActions } from "./status-actions";
 import { CrucesActions } from "./cruces-actions";
-import { BracketView } from "./bracket-view";
+import { Bracket } from "@/components/bracket";
 import { EditMundialitoForm } from "./edit-mundialito-form";
 import { ShareLinks } from "./share-links";
 
 type Params = Promise<{ id: string }>;
+
+export const metadata: Metadata = { title: "Panel del torneo" };
 
 export default async function MundialitoPage({ params }: { params: Params }) {
   const { id } = await params;
@@ -60,185 +65,254 @@ export default async function MundialitoPage({ params }: { params: Params }) {
     (m) => m.status === "PENDING" && m.item_a_id && m.item_b_id,
   );
 
+  const status = statusMeta(mundialito.status);
+  const mode = modeMeta(mundialito.mode);
+
+  // CTA contextual segun estado (misma logica que antes, un solo bloque).
+  const canVote =
+    mundialito.status === "ACTIVE" || mundialito.status === "FINISHED";
+  const canVoteCruces = isCruces && mundialito.status === "VOTING";
+
   return (
-    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
-      <h1>{mundialito.name}</h1>
-      <p style={{ color: "#666" }}>
-        Estado: <strong>{mundialito.status}</strong>
-        {mundialito.mode === "CRUCES" && " · Modo: Eliminación directa"}
-        {!isOwner && " (no sos owner)"}
-      </p>
+    <main className="flex-1 pb-16">
+      <AppHeader email={user.email} />
 
-      {isOwner && isCruces && (
-        <CrucesActions
-          mundialitoId={id}
-          status={mundialito.status}
-          itemsCount={items?.length ?? 0}
-          participantsCount={participants?.length ?? 0}
-          openMatchId={openMatch?.id ?? null}
-          hasPendingNext={hasPendingNext}
-        />
-      )}
+      <div className="page-wide">
+        <Link
+          href="/"
+          className="text-sm text-muted no-underline hover:text-fg"
+        >
+          ← Volver
+        </Link>
 
-      {isOwner && !isCruces && (
-        <StatusActions mundialitoId={id} status={mundialito.status} />
-      )}
+        {/* Encabezado del torneo */}
+        <header className="mt-6">
+          <p className="eyebrow">{isOwner ? "Tu torneo" : "Torneo"}</p>
+          <h1 className="h1 mt-2">{mundialito.name}</h1>
 
-      {(mundialito.status === "ACTIVE" || mundialito.status === "FINISHED") && (
-        <p style={{ marginTop: "0.5rem" }}>
-          <Link href={`/vote/${id}`}>
-            {mundialito.status === "ACTIVE" ? "Ir a votar →" : "Ver resultados →"}
+          {mundialito.description ? (
+            <p className="lead mt-2 max-w-2xl">{mundialito.description}</p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className={`pill ${status.pill}`}>
+              <span className="dot" aria-hidden="true" />
+              {status.label}
+            </span>
+            <span className={`pill ${mode.pill}`}>{mode.label}</span>
+            {!isOwner ? (
+              <span className="pill pill-neutral">Sos invitado</span>
+            ) : null}
+          </div>
+        </header>
+
+        {/* Proximo paso: votar / ver resultados */}
+        {canVote || canVoteCruces ? (
+          <Link
+            href={`/vote/${id}`}
+            className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
+          >
+            <span>
+              <span className="block font-semibold text-fg">
+                {mundialito.status === "FINISHED"
+                  ? "Ver los resultados"
+                  : "Ir a votar"}
+              </span>
+              <span className="hint">
+                {mundialito.status === "FINISHED"
+                  ? "Ya está todo definido. Mirá cómo quedó."
+                  : "La votación está abierta: entrá y dejá tu voto."}
+              </span>
+            </span>
+            <span aria-hidden="true" className="text-brand">
+              →
+            </span>
           </Link>
-        </p>
-      )}
+        ) : null}
 
-      {isOwner && isCruces && mundialito.status === "PARTICIPANTS_OPEN" && (
-        <p style={{ marginTop: "0.5rem" }}>
-          <Link href={`/vote/${id}`}>
-            Sumate como participante con tu nombre antes del sorteo →
+        {isOwner && isCruces && mundialito.status === "PARTICIPANTS_OPEN" ? (
+          <Link
+            href={`/vote/${id}`}
+            className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
+          >
+            <span>
+              <span className="block font-semibold text-fg">
+                Sumate vos también
+              </span>
+              <span className="hint">
+                Anotá tu nombre antes del sorteo para competir en el bracket.
+              </span>
+            </span>
+            <span aria-hidden="true" className="text-brand">
+              →
+            </span>
           </Link>
-        </p>
-      )}
+        ) : null}
 
-      {isCruces && mundialito.status === "VOTING" && (
-        <p style={{ marginTop: "0.5rem" }}>
-          <Link href={`/vote/${id}`}>Ir a votar →</Link>
-        </p>
-      )}
-
-      {isOwner && mundialito.status === "DRAFT" && (
-        <EditMundialitoForm
-          mundialitoId={id}
-          initialName={mundialito.name}
-          initialDescription={mundialito.description ?? null}
-          initialMode={mundialito.mode === "CRUCES" ? "CRUCES" : "RANKING"}
-        />
-      )}
-
-      {isCruces && (matches?.length ?? 0) > 0 && (
-        <section style={{ marginTop: "2rem" }}>
-          <h2>Bracket</h2>
-          <BracketView
+        {/* Controles del organizador. El card lo pone cada componente:
+            puede no haber ninguna accion (FINISHED) y entonces devuelve
+            null, asi que envolverlo desde aca dejaba un card vacio. */}
+        {isOwner && isCruces ? (
+          <CrucesActions
+            mundialitoId={id}
             status={mundialito.status}
-            matches={matches ?? []}
-            items={items ?? []}
+            itemsCount={items?.length ?? 0}
+            participantsCount={participants?.length ?? 0}
+            openMatchId={openMatch?.id ?? null}
+            hasPendingNext={hasPendingNext}
           />
-        </section>
-      )}
+        ) : null}
 
-      {isOwner &&
+        {isOwner && !isCruces ? (
+          <StatusActions mundialitoId={id} status={mundialito.status} />
+        ) : null}
+
+        {/* Edicion (solo en borrador) */}
+        {isOwner && mundialito.status === "DRAFT" ? (
+          <EditMundialitoForm
+            mundialitoId={id}
+            initialName={mundialito.name}
+            initialDescription={mundialito.description ?? null}
+            initialMode={mundialito.mode === "CRUCES" ? "CRUCES" : "RANKING"}
+          />
+        ) : null}
+
+        {/* Compartir */}
+        {isOwner &&
         (mundialito.status === "ACTIVE" ||
           (isCruces &&
             (mundialito.status === "PARTICIPANTS_OPEN" ||
               mundialito.status === "PARTICIPANTS_LOCKED" ||
               mundialito.status === "DRAWN" ||
-              mundialito.status === "VOTING"))) && (
-        <ShareLinks mundialitoId={id} />
-      )}
+              mundialito.status === "VOTING"))) ? (
+          <ShareLinks mundialitoId={id} />
+        ) : null}
 
-      {mundialito.description && !isOwner && <p>{mundialito.description}</p>}
+        {/* Bracket (aparece a partir del sorteo) */}
+        {isCruces && (matches?.length ?? 0) > 0 ? (
+          <section className="mt-6" aria-label="Bracket">
+            <h2 className="h2">Bracket</h2>
+            <div className="mt-4">
+              <Bracket
+                status={mundialito.status}
+                matches={matches ?? []}
+                items={items ?? []}
+              />
+            </div>
+          </section>
+        ) : null}
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2>Participantes ({participants?.length ?? 0})</h2>
+        {/* Participantes */}
+        <section className="card card-pad mt-6" aria-label="Participantes">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="h3">Participantes</h2>
+            <span className="hint">{participants?.length ?? 0}</span>
+          </div>
 
-        <AddParticipantsForm
-          mundialitoId={id}
-          status={mundialito.status}
-          mode={mundialito.mode}
-        />
+          <div className="mt-4">
+            <AddParticipantsForm
+              mundialitoId={id}
+              status={mundialito.status}
+              mode={mundialito.mode}
+            />
+          </div>
 
-        {participants?.length ? (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {participants.map((p) => (
-              <li
-                key={p.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.5rem 0",
-                  borderBottom: "1px solid #eee",
-                }}
-              >
-                <span>
-                  {p.display_name}
-                  {!p.auth_user_id && (
-                    <small style={{ color: "#888" }}> (sin cuenta)</small>
-                  )}
-                  {p.status === "EXCLUDED" && (
-                    <small style={{ color: "crimson" }}> (excluido)</small>
-                  )}
-                </span>
+          {participants?.length ? (
+            <ul className="mt-2 divide-y divide-line">
+              {participants.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="avatar" aria-hidden="true">
+                      {p.display_name.trim().charAt(0)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[0.9375rem] font-medium text-fg">
+                        {p.display_name}
+                      </span>
+                      {!p.auth_user_id || p.status === "EXCLUDED" ? (
+                        <span className="mt-1 flex flex-wrap gap-1.5">
+                          {!p.auth_user_id ? (
+                            <span className="pill pill-neutral">Sin cuenta</span>
+                          ) : null}
+                          {p.status === "EXCLUDED" ? (
+                            <span className="pill pill-danger">Excluido</span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                    </span>
+                  </div>
 
-                <span style={{ display: "inline-flex", gap: "0.5rem" }}>
-                  {isOwner && mundialito.status === "DRAFT" && (
-                    <DeleteParticipantButton
-                      participantId={p.id}
-                      displayName={p.display_name}
-                    />
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isOwner && mundialito.status === "DRAFT" ? (
+                      <DeleteParticipantButton
+                        participantId={p.id}
+                        displayName={p.display_name}
+                      />
+                    ) : null}
 
-                  {isOwner &&
+                    {isOwner &&
                     isCruces &&
                     mundialito.status !== "DRAFT" &&
-                    mundialito.status !== "FINISHED" && (
+                    mundialito.status !== "FINISHED" ? (
                       <ToggleParticipantStatusButton
                         participantId={p.id}
                         displayName={p.display_name}
                         currentStatus={p.status}
                       />
-                    )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ color: "#888" }}>Todavía no hay participantes.</p>
-        )}
-      </section>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint mt-4">Todavía no hay participantes.</p>
+          )}
+        </section>
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2>Items ({items?.length ?? 0})</h2>
+        {/* Items */}
+        <section className="card card-pad mt-6" aria-label="Items">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="h3">Ítems</h2>
+            <span className="hint">{items?.length ?? 0}</span>
+          </div>
 
-        <AddItemsForm
-          mundialitoId={id}
-          isDraft={mundialito.status === "DRAFT"}
-        />
+          <div className="mt-4">
+            <AddItemsForm
+              mundialitoId={id}
+              isDraft={mundialito.status === "DRAFT"}
+            />
+          </div>
 
-        {items?.length ? (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {items.map((i) => (
-              <li
-                key={i.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0.5rem 0",
-                  borderBottom: "1px solid #eee",
-                }}
-              >
-                <span>
-                  {i.name}
-                  {i.description && (
-                    <small style={{ color: "#888" }}> — {i.description}</small>
-                  )}
-                </span>
+          {items?.length ? (
+            <ul className="mt-2 divide-y divide-line">
+              {items.map((i) => (
+                <li
+                  key={i.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[0.9375rem] font-medium text-fg">
+                      {i.name}
+                    </span>
+                    {i.description ? (
+                      <span className="hint">{i.description}</span>
+                    ) : null}
+                  </span>
 
-                {isOwner && mundialito.status === "DRAFT" && (
-                  <DeleteItemButton itemId={i.id} name={i.name} />
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ color: "#888" }}>Todavía no hay items.</p>
-        )}
-      </section>
-
-      <p style={{ marginTop: "2rem" }}>
-        <Link href="/">Volver</Link>
-      </p>
+                  {isOwner && mundialito.status === "DRAFT" ? (
+                    <DeleteItemButton itemId={i.id} name={i.name} />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint mt-4">Todavía no hay ítems.</p>
+          )}
+        </section>
+      </div>
     </main>
   );
 }

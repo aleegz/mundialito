@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { AuthShell } from "@/components/auth-shell";
+
+export const metadata: Metadata = { title: "Crear cuenta" };
 
 type SearchParams = Promise<{ error?: string; registro?: string }>;
 
@@ -86,66 +91,70 @@ export default async function RegisterPage({
   const { error: errorMessage, registro } = await searchParams;
 
   return (
-    <main
-      style={{
-        padding: "2rem",
-        maxWidth: 400,
-        margin: "0 auto",
-        fontFamily: "system-ui",
-      }}
+    <AuthShell
+      title="Creá tu cuenta"
+      lead="En un minuto tenés tu primer torneo listo para compartir."
+      footer={
+        <>
+          ¿Ya tenés cuenta?{" "}
+          <Link href="/login" className="font-medium text-brand no-underline">
+            Entrá
+          </Link>
+        </>
+      }
     >
-      <h1>🏆 Mundialito</h1>
-      <p>Crea tu cuenta para administrar tus mundialitos.</p>
+      {errorMessage ? (
+        <p className="alert alert-danger mb-5" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
 
-      <form action={register} style={{ display: "grid", gap: "1rem" }}>
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          autoComplete="email"
-          required
-          style={inputStyle}
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="Contraseña"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          required
-          style={inputStyle}
-        />
-        <button type="submit" style={buttonStyle}>
-          Registrarme
+      {registro === "pendiente" ? (
+        <p className="alert alert-success mb-5" role="status">
+          Te mandamos un email para confirmar tu cuenta. Revisá tu bandeja.
+        </p>
+      ) : null}
+
+      <form action={register} className="space-y-4">
+        <div className="field">
+          <label className="label" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="vos@ejemplo.com"
+            autoComplete="email"
+            required
+            className="input"
+          />
+        </div>
+
+        <div className="field">
+          <label className="label" htmlFor="password">
+            Contraseña
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Creá una contraseña"
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            required
+            aria-describedby="password-hint"
+            className="input"
+          />
+          <p className="hint" id="password-hint">
+            Mínimo {MIN_PASSWORD_LENGTH} caracteres.
+          </p>
+        </div>
+
+        <button type="submit" className="btn btn-primary btn-block btn-lg">
+          Crear cuenta
         </button>
       </form>
-
-      {errorMessage && (
-        <p style={{ color: "crimson", marginTop: "1rem" }}>{errorMessage}</p>
-      )}
-
-      {registro === "pendiente" && (
-        <p style={{ color: "seagreen", marginTop: "1rem" }}>
-          Revisá tu email para confirmar tu cuenta.
-        </p>
-      )}
-    </main>
+    </AuthShell>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};

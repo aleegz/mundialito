@@ -1,26 +1,916 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ============================================================================
+   MUNDIALITO — Sistema de diseño
+   ----------------------------------------------------------------------------
+   Un solo lugar para la identidad visual. La app consume tokens semánticos
+   (nunca colores sueltos): cambiar la marca es cambiar --brand acá y listo.
+
+   Capas:
+     1. @theme inline  -> expone los tokens como utilidades Tailwind
+                          (bg-surface, text-muted, border-line, shadow-card…)
+     2. :root / dark   -> valores crudos, con variante oscura automática
+     3. @layer base    -> reset suave, tipografía, foco accesible
+     4. @layer components -> clases semánticas (btn, card, input, pill…)
+   ========================================================================== */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Tipografía */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+
+  /* Superficies */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+
+  /* Texto */
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  /* Bordes */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  /* Marca */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+
+  /* Estados */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  /* Radios — generan rounded-xs … rounded-2xl */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  /* Sombras — generan shadow-xs … shadow-xl */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.07), 0 1px 2px -1px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 14px -3px rgb(15 23 42 / 0.10), 0 2px 6px -2px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 18px 40px -14px rgb(15 23 42 / 0.20), 0 6px 16px -10px rgb(15 23 42 / 0.10);
+  --shadow-xl: 0 32px 64px -24px rgb(15 23 42 / 0.28);
 }
 
+/* ---------------------------------------------------------------------------
+   Tokens — tema claro (base)
+   ------------------------------------------------------------------------ */
+:root {
+  --canvas: #f6f7f9;
+  --surface: #ffffff;
+  --sunken: #eef1f5;
+
+  --fg: #0f1720;
+  --muted: #5b6472;
+  --subtle: #8b94a3;
+
+  --line: #e6e9ee;
+  --line-strong: #d3d9e2;
+
+  --brand: #0f766e;
+  --brand-hover: #0d5f59;
+  --brand-fg: #ffffff;
+  --brand-soft: #e6f4f2;
+
+  --success: #15803d;
+  --success-soft: #e8f6ed;
+  --warning: #b45309;
+  --warning-soft: #fdf3e3;
+  --danger: #b91c1c;
+  --danger-soft: #fdeceb;
+  --info: #1d4ed8;
+  --info-soft: #e9eefc;
+
+  --ring: color-mix(in oklab, var(--brand) 35%, transparent);
+  --shadow-color: 15 23 42;
+}
+
+/* ---------------------------------------------------------------------------
+   Tokens — tema oscuro (sigue la preferencia del sistema)
+   ------------------------------------------------------------------------ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #0a0c0f;
+    --surface: #14181d;
+    --sunken: #1b2025;
+
+    --fg: #f2f4f7;
+    --muted: #a3acba;
+    --subtle: #6e7887;
+
+    --line: #262c34;
+    --line-strong: #353d47;
+
+    --brand: #2dd4bf;
+    --brand-hover: #5eead4;
+    --brand-fg: #05221f;
+    --brand-soft: color-mix(in oklab, var(--brand) 16%, transparent);
+
+    --success: #4ade80;
+    --success-soft: color-mix(in oklab, var(--success) 16%, transparent);
+    --warning: #fbbf24;
+    --warning-soft: color-mix(in oklab, var(--warning) 16%, transparent);
+    --danger: #f87171;
+    --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+    --info: #93b4fd;
+    --info-soft: color-mix(in oklab, var(--info) 18%, transparent);
+
+    --shadow-color: 0 0 0;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------------------------------------------------------------------------
+   Base
+   ------------------------------------------------------------------------ */
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--brand-soft);
+    color: var(--fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Componentes — clases semánticas reutilizables
+   Escritas en CSS plano a propósito: predecibles y sin dependencia del
+   pipeline de utilidades.
+   ------------------------------------------------------------------------ */
+@layer components {
+  /* --- Layout ---------------------------------------------------------- */
+  .page {
+    width: 100%;
+    max-width: 44rem;
+    margin-inline: auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  .page-wide {
+    width: 100%;
+    max-width: 60rem;
+    margin-inline: auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  /* --- Encabezados ----------------------------------------------------- */
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--subtle);
+  }
+
+  .h1 {
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .h2 {
+    font-size: clamp(1.25rem, 1rem + 1vw, 1.625rem);
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .lead {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .subtle {
+    color: var(--subtle);
+  }
+
+  /* --- Card ------------------------------------------------------------ */
+  .card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .card-pad {
+    padding: 1.25rem;
+  }
+
+  .card-hover:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--line-strong);
+    transform: translateY(-2px);
+  }
+
+  .card-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Badge de estado de un cruce. Va posicionado ABSOLUTO sobre el borde
+     superior para no alterar la altura de la tarjeta: la geometria del
+     bracket depende de que todas las tarjetas midan exactamente igual. */
+  .bracket-badge {
+    position: absolute;
+    top: -0.4375rem;
+    right: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid var(--surface);
+    background-color: var(--brand-soft);
+    color: var(--brand);
+    padding: 0.0625rem 0.4375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.45;
+    white-space: nowrap;
+  }
+
+  /* --- Bracket: conectores ---------------------------------------------
+     Las lineas se dibujan con pseudo-elementos absolutos sobre el SLOT
+     (no sobre la tarjeta), asi que no ocupan lugar, la geometria del
+     arbol no se mueve y los offsets son exactos.
+
+     Por que sobre el slot y no sobre la tarjeta: el containing block de
+     un elemento absoluto es la caja de PADDING del ancestro posicionado.
+     La tarjeta tiene `p-2.5` + borde, asi que cualquier offset en px
+     contra ella queda corrido 11px y la linea se dibuja encima del
+     fondo de la tarjeta. El slot no tiene padding ni borde: `left: 0` es
+     su borde de verdad.
+
+     Por que `--node-h` es FIJO: con `justify-around` y tarjetas de igual
+     alto, la distancia entre los centros de dos hermanas es exactamente
+     (alto + gap), y se DUPLICA en cada ronda hacia adentro. Fijando el
+     alto, el codo de cada ronda mide `step * 2^(r-2)` — un numero, no
+     una incognita. Sin esto habria que calcular alturas en JS. */
+  .bracket {
+    /* 4.75rem es el alto NATURAL del contenido (2 filas de 20px + divisor
+       + padding) mas el borde. Fijarlo no es capricho: es lo que hace
+       medible el codo. */
+    --node-h: 4.75rem;
+    --node-gap: 0.75rem;
+    /* El hueco entre columnas: tiene que dar lugar a las 3 patas + el
+       codo. Debe coincidir con el `gap` de la grilla del bracket. */
+    --col-gap: 1rem;
+    --junction: calc(var(--col-gap) / 2);
+    --line-w: 2px;
+    --fork-h: 0px;
+    /* Cada pata se pinta por separado: asi el camino del ganador se
+       marca solo hasta donde corresponde. */
+    --leg-a: var(--line-strong);
+    --leg-b: var(--line-strong);
+    --leg-root: var(--line-strong);
+    --bracket-step: calc(var(--node-h) + var(--node-gap));
+  }
+
+  /* Slot de la tarjeta: reparte la columna y ancla los conectores. */
+  .bracket-node {
+    position: relative;
+    height: var(--node-h);
+  }
+
+  /* Cuerpo de la columna. El gap entre tarjetas ES `--node-gap`, el mismo
+     que entra en la formula del codo: si se desincronizan, el codo deja
+     de cerrar contra las hijas. Por eso va por CSS y no por clase. */
+  .bracket-col-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: var(--node-gap);
+  }
+
+  /* La llave: TRES patas. Las de arriba y abajo (bordes top/bottom) van
+     a buscar a cada hija; el codo vertical (el borde del lado de las
+     hijas) las une; y el tallo sale de la union hacia el padre.
+     Se dibuja desde el PADRE, asi que ninguna tarjeta dibuja su salida:
+     la dibuja el partido que la recibe. Una sola vez, sin duplicar. */
+  .bracket-node--fork::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: var(--junction);
+    height: calc(var(--fork-h) + var(--line-w));
+    transform: translateY(-50%);
+    border: 0 solid;
+    border-top-width: var(--line-w);
+    border-bottom-width: var(--line-w);
+    border-top-color: var(--leg-a);
+    border-bottom-color: var(--leg-b);
+    pointer-events: none;
+  }
+
+  .bracket-side--left .bracket-node--fork::before {
+    left: calc(-1 * var(--col-gap));
+    border-right-width: var(--line-w);
+    border-right-color: var(--leg-root);
+  }
+
+  .bracket-side--right .bracket-node--fork::before {
+    right: calc(-1 * var(--col-gap));
+    border-left-width: var(--line-w);
+    border-left-color: var(--leg-root);
+  }
+
+  /* El tallo: de la union al borde del padre. */
+  .bracket-node--fork::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: var(--junction);
+    height: var(--line-w);
+    transform: translateY(-50%);
+    background-color: var(--leg-root);
+    pointer-events: none;
+  }
+
+  .bracket-side--left .bracket-node--fork::after {
+    left: calc(-1 * var(--junction));
+  }
+
+  .bracket-side--right .bracket-node--fork::after {
+    right: calc(-1 * var(--junction));
+  }
+
+  /* Ganador: el borde se conecta visualmente con las lineas. Se usa
+     `outline` y no `box-shadow` porque el estado OPEN ya usa el `ring`
+     de Tailwind, que tambien es box-shadow: asi no se pisan. Va en la
+     TARJETA, que es la que tiene borde. */
+  .bracket-card--won {
+    border-color: var(--brand);
+    outline: 1px solid color-mix(in oklab, var(--brand) 45%, transparent);
+    outline-offset: 0;
+  }
+
+  /* --- Bracket: la final ------------------------------------------------
+     La final no lleva codo: sus dos hijas (las semis) estan a la misma
+     altura, una a cada lado, asi que la conexion son dos rectas
+     horizontales. El slot deja de tener alto fijo para que la tarjeta
+     pueda crecer y distinguirse de las semis. */
+  .bracket-node--final {
+    height: auto;
+  }
+
+  .bracket-node--final::before,
+  .bracket-node--final::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: var(--col-gap);
+    height: var(--line-w);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .bracket-node--final::before {
+    left: calc(-1 * var(--col-gap));
+    background-color: var(--leg-a);
+  }
+
+  .bracket-node--final::after {
+    right: calc(-1 * var(--col-gap));
+    background-color: var(--leg-b);
+  }
+
+  /* Se distingue de las semis a proposito: mas grande, borde de marca,
+     fondo con un lavado de color y sombra propia. */
+  .bracket-final-node {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: calc(var(--node-h) + 1.5rem);
+    padding: 0.75rem;
+    border-width: 2px;
+    border-color: color-mix(in oklab, var(--brand) 55%, var(--line-strong));
+    box-shadow: var(--shadow-md);
+    background-image: linear-gradient(
+      180deg,
+      var(--brand-soft) 0%,
+      transparent 70%
+    );
+  }
+
+  .bracket-final-tag {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+
+  /* La final ya resuelta: el borde de marca manda sobre el color mixto,
+     sin depender del orden en que esten escritas las reglas. */
+  .bracket-final-node.bracket-card--won {
+    border-color: var(--brand);
+    background-image: linear-gradient(
+      180deg,
+      var(--brand-soft) 0%,
+      transparent 55%
+    );
+  }
+
+  /* --- Botones --------------------------------------------------------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 0.625rem 1.125rem;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    user-select: none;
+    transition:
+      background-color 0.16s ease,
+      border-color 0.16s ease,
+      color 0.16s ease,
+      box-shadow 0.16s ease,
+      transform 0.08s ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.978);
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--brand);
+    color: var(--brand-fg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--brand-hover);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-secondary {
+    background-color: var(--surface);
+    border-color: var(--line-strong);
+    color: var(--fg);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--sunken);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--muted);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--sunken);
+    color: var(--fg);
+  }
+
+  .btn-soft {
+    background-color: var(--brand-soft);
+    color: var(--brand);
+  }
+
+  .btn-soft:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--brand) 18%, transparent);
+  }
+
+  .btn-danger {
+    background-color: transparent;
+    border-color: color-mix(in oklab, var(--danger) 35%, transparent);
+    color: var(--danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--danger-soft);
+  }
+
+  /* Accion destructiva enfatica (boton de confirmar en un paso de
+     confirmacion). El texto usa el color de superficie: blanco sobre
+     rojo en tema claro, y oscuro sobre el rojo claro del tema oscuro. */
+  .btn-danger-solid {
+    background-color: var(--danger);
+    color: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-danger-solid:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+
+  .btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    border-radius: var(--radius-md);
+  }
+
+  .btn-lg {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .btn-block {
+    width: 100%;
+  }
+
+  .btn-icon {
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    aspect-ratio: 1;
+  }
+
+  /* --- Formularios ----------------------------------------------------- */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .label {
+    font-size: 0.875rem;
+    font-weight: 550;
+    color: var(--fg);
+  }
+
+  .hint {
+    font-size: 0.8125rem;
+    color: var(--subtle);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    width: 100%;
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    color: var(--fg);
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background-color 0.16s ease;
+  }
+
+  .input::placeholder,
+  .textarea::placeholder {
+    color: var(--subtle);
+  }
+
+  .input:hover:not(:disabled),
+  .textarea:hover:not(:disabled) {
+    border-color: var(--muted);
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .input:disabled,
+  .textarea:disabled {
+    background-color: var(--sunken);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .textarea {
+    resize: vertical;
+    min-height: 5.5rem;
+  }
+
+  .select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b94a3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2.25rem;
+  }
+
+  /* --- Pills / badges -------------------------------------------------- */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .pill-neutral {
+    background-color: var(--sunken);
+    color: var(--muted);
+  }
+
+  .pill-brand {
+    background-color: var(--brand-soft);
+    color: var(--brand);
+  }
+
+  .pill-success {
+    background-color: var(--success-soft);
+    color: var(--success);
+  }
+
+  .pill-warning {
+    background-color: var(--warning-soft);
+    color: var(--warning);
+  }
+
+  .pill-danger {
+    background-color: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .pill-info {
+    background-color: var(--info-soft);
+    color: var(--info);
+  }
+
+  .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background-color: currentColor;
+    flex: none;
+  }
+
+  /* --- Alertas --------------------------------------------------------- */
+  .alert {
+    display: flex;
+    gap: 0.625rem;
+    align-items: flex-start;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 0.8125rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .alert-danger {
+    background-color: var(--danger-soft);
+    border-color: color-mix(in oklab, var(--danger) 25%, transparent);
+    color: var(--danger);
+  }
+
+  .alert-success {
+    background-color: var(--success-soft);
+    border-color: color-mix(in oklab, var(--success) 25%, transparent);
+    color: var(--success);
+  }
+
+  .alert-warning {
+    background-color: var(--warning-soft);
+    border-color: color-mix(in oklab, var(--warning) 25%, transparent);
+    color: var(--warning);
+  }
+
+  .alert-info {
+    background-color: var(--info-soft);
+    border-color: color-mix(in oklab, var(--info) 20%, transparent);
+    color: var(--info);
+  }
+
+  /* --- Elección (voto A/B, puntaje) ------------------------------------ */
+  .choice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background-color: var(--surface);
+    padding: 0.75rem 1rem;
+    font-weight: 550;
+    color: var(--fg);
+    cursor: pointer;
+    transition:
+      border-color 0.16s ease,
+      background-color 0.16s ease,
+      box-shadow 0.16s ease,
+      transform 0.08s ease;
+  }
+
+  .choice:hover:not(:disabled) {
+    border-color: var(--brand);
+  }
+
+  .choice:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  .choice-selected {
+    border-color: var(--brand);
+    background-color: var(--brand-soft);
+    color: var(--brand);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .choice:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  /* Cuando la opcion envuelve un radio/checkbox real (oculto con
+     `sr-only`), el estado marcado y el hover se reflejan solos. */
+  .choice:has(input:checked) {
+    border-color: var(--brand);
+    background-color: var(--brand-soft);
+    color: var(--brand);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .choice:has(input:focus-visible) {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /* --- Segmentado (tabs / switch) -------------------------------------- */
+  .segmented {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background-color: var(--sunken);
+    border-radius: var(--radius-lg);
+  }
+
+  .segmented-item {
+    border: none;
+    background-color: transparent;
+    border-radius: var(--radius-md);
+    padding: 0.4375rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 550;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background-color 0.16s ease,
+      color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+
+  .segmented-item[aria-selected="true"],
+  .segmented-item[data-active="true"] {
+    background-color: var(--surface);
+    color: var(--fg);
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* --- Barra de progreso ----------------------------------------------- */
+  .progress {
+    height: 0.5rem;
+    width: 100%;
+    background-color: var(--sunken);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background-color: var(--brand);
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+  }
+
+  /* --- Estado vacío ---------------------------------------------------- */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-xl);
+    background-color: color-mix(in oklab, var(--surface) 60%, transparent);
+  }
+
+  /* --- Header flotante ------------------------------------------------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background-color: color-mix(in oklab, var(--canvas) 78%, transparent);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* --- Separador ------------------------------------------------------- */
+  .divider {
+    height: 1px;
+    width: 100%;
+    background-color: var(--line);
+  }
+
+  /* --- Avatar ---------------------------------------------------------- */
+  .avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: none;
+    border-radius: 9999px;
+    background-color: var(--brand-soft);
+    color: var(--brand);
+    font-size: 0.875rem;
+    font-weight: 650;
+    text-transform: uppercase;
+  }
 }

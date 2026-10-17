@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
+import { formatShortDate, modeMeta, statusMeta } from "@/lib/ui/labels";
+
+export const metadata: Metadata = { title: "Tus torneos" };
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -16,57 +21,101 @@ export default async function HomePage() {
     .select("*")
     .order("created_at", { ascending: false });
 
-  async function logout() {
-    "use server";
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect("/login");
+  if (!mundialitos || mundialitos.length === 0) {
+    return (
+      <main className="flex-1 pb-16">
+        <AppHeader email={user.email} />
+
+        <div className="page-wide">
+          <div className="mt-10">
+            <p className="eyebrow">Tus torneos</p>
+            <h1 className="h1 mt-2">Mundialito</h1>
+            <p className="lead mt-2 max-w-md">
+              Armá un torneo, pasá el link y mirá cómo votan tus amigos en vivo.
+            </p>
+          </div>
+
+          <div className="empty mt-10">
+            <span className="text-4xl" aria-hidden="true">
+              🏟️
+            </span>
+            <h2 className="h3 mt-2">Todavía no tenés torneos</h2>
+            <p className="hint max-w-xs">
+              Creá el primero y compartí el link para que tus amigos se sumen.
+            </p>
+            <Link href="/mundialito/new" className="btn btn-primary mt-3">
+              Crear mi primer mundialito
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "2rem",
-        }}
-      >
-        <h1>🏆 Mundialito</h1>
-        <form action={logout}>
-          <button type="submit">Salir</button>
-        </form>
-      </header>
+    <main className="flex-1 pb-16">
+      <AppHeader email={user.email} />
 
-      <p style={{ color: "#666" }}>Sesión: {user.email}</p>
+      <div className="page-wide">
+        <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="eyebrow">Tus torneos</p>
+            <h1 className="h1 mt-2">Mundialito</h1>
+            <p className="lead mt-2 max-w-md">
+              Armá un torneo, pasá el link y mirá cómo votan tus amigos en vivo.
+            </p>
+          </div>
 
-      <section>
-        <h2>Mis mundialitos</h2>
+          <Link
+            href="/mundialito/new"
+            className="btn btn-primary btn-lg sm:shrink-0"
+          >
+            <span aria-hidden="true">＋</span>
+            Nuevo mundialito
+          </Link>
+        </div>
 
-        {!mundialitos || mundialitos.length === 0 ? (
-          <p style={{ color: "#888" }}>
-            Todavía no creaste ningún mundialito.
-          </p>
-        ) : (
-          <ul>
-            {mundialitos.map((m) => (
-              <li key={m.id}>
-                <Link href={`/mundialito/${m.id}`}>{m.name}</Link>{" "}
-                <small style={{ color: "#888" }}>({m.status})</small>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <section className="mt-10" aria-label="Tus mundialitos">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {mundialitos.map((m) => {
+                const status = statusMeta(m.status);
+                const mode = modeMeta(m.mode);
+                const date = formatShortDate(m.created_at);
 
-      <p style={{ marginTop: "2rem" }}>
-        <Link href="/mundialito/new">Crear un nuevo Mundialito</Link>
-      </p>
+                return (
+                  <Link
+                    key={m.id}
+                    href={`/mundialito/${m.id}`}
+                    className="card card-pad card-hover card-link"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h2 className="h3">{m.name}</h2>
+                      <span className={`pill ${status.pill}`}>
+                        <span className="dot" aria-hidden="true" />
+                        {status.label}
+                      </span>
+                    </div>
 
-      <p>
-        <Link href="/rls-test">Ver test de RLS</Link>
-      </p>
+                    {m.description ? (
+                      <p className="mt-2 line-clamp-2 text-sm text-muted">
+                        {m.description}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 flex items-center gap-2">
+                      <span className={`pill ${mode.pill}`}>{mode.label}</span>
+                      {date ? (
+                        <span className="ml-auto text-xs text-subtle">
+                          {date}
+                        </span>
+                      ) : null}
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

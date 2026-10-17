@@ -454,41 +454,64 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   }
 
   if (phase === "loading") {
-    return <p style={mutedStyle}>Cargando…</p>;
+    return (
+      <div
+        className="card card-pad animate-pulse"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <span className="sr-only">Cargando la votación…</span>
+        <div className="h-6 w-2/3 rounded-lg bg-sunken" />
+        <div className="mt-3 h-4 w-1/2 rounded-lg bg-sunken" />
+      </div>
+    );
   }
 
   if (phase === "notfound") {
     return (
-      <section>
-        <h1>Mundialito no encontrado</h1>
-        <p style={mutedStyle}>
+      <div className="empty">
+        <p className="h3">No encontramos este torneo</p>
+        <p className="hint">
           Revisá el enlace que te compartieron e intentá de nuevo.
         </p>
-      </section>
+      </div>
     );
   }
 
   if (phase === "loaderror") {
     return (
-      <section>
-        <h1>No se pudo cargar la votación</h1>
-        <p style={mutedStyle}>Intentá de nuevo en unos minutos.</p>
-      </section>
+      <div className="empty">
+        <p className="h3">No pudimos cargar la votación</p>
+        <p className="hint">Intentá de nuevo en unos minutos.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn btn-secondary mt-3"
+        >
+          Reintentar
+        </button>
+      </div>
     );
   }
 
   if (phase === "draft") {
     return (
-      <section>
-        <h1>{mundialito?.name ?? "Mundialito"}</h1>
-        <p style={{ ...mutedStyle, fontWeight: 600 }}>
-          La votación aún no comenzó.
-        </p>
-        <p style={mutedStyle}>
+      <div className="card card-pad">
+        <p className="eyebrow">Todavía no empezó</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+        <p className="lead mt-3">La votación aún no comenzó.</p>
+        <p className="hint mt-2">
           Cuando se active vas a poder registrarte con tu nombre y votar.
           Recargá la página más tarde.
         </p>
-      </section>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="btn btn-secondary mt-4"
+        >
+          Recargar
+        </button>
+      </div>
     );
   }
 
@@ -522,70 +545,103 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
     return (
       <section>
-        <h1>Resultados — {mundialito?.name ?? "Mundialito"}</h1>
+        <p className="eyebrow">Resultados</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
-          <p style={mutedStyle}>{mundialito.description}</p>
+          <p className="lead mt-2">{mundialito.description}</p>
         )}
-        <p style={{ ...mutedStyle, fontWeight: 600 }}>
+        <p className="alert alert-info mt-4">
           La votación finalizó. No se pueden modificar más los votos.
         </p>
 
-        <h2 style={resultsHeadingStyle}>Ranking de ítems</h2>
+        <h2 className="h2 mt-8">Ranking de ítems</h2>
 
         {itemResultsSorted.length === 0 ? (
-          <p style={mutedStyle}>Todavía no hay votos registrados.</p>
+          <p className="hint mt-3">Todavía no hay votos registrados.</p>
         ) : (
-          <ol style={resultListStyle}>
-            {itemResultsSorted.map((row) => (
-              <li key={row.itemId} style={resultRowStyle}>
-                <div style={resultRowHeaderStyle}>
-                  <span style={positionStyle}>{row.position}.</span>
-                  <span>{itemNameOf(row.itemId)}</span>
-                </div>
-                <div style={resultStatsStyle}>
-                  Promedio {formatAverage(row.average)} · Mín {row.min} · Máx{" "}
-                  {row.max} · {row.voteCount}{" "}
-                  {row.voteCount === 1 ? "voto" : "votos"}
-                </div>
-              </li>
-            ))}
+          <ol className="mt-4 space-y-2">
+            {itemResultsSorted.map((row) => {
+              // La barra es la nota sobre 10: mismo dato que el
+              // promedio, pero se lee la distancia de un vistazo.
+              const pct = Number.isFinite(row.average)
+                ? Math.max(0, Math.min(100, row.average * 10))
+                : 0;
+
+              return (
+                <li key={row.itemId} className="card p-3.5">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-bold tabular-nums ${
+                        row.position === 1
+                          ? "bg-brand-soft text-brand"
+                          : "bg-sunken text-muted"
+                      }`}
+                    >
+                      {row.position}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="truncate font-semibold text-fg">
+                          {itemNameOf(row.itemId)}
+                        </span>
+                        <span className="flex-none text-lg font-bold tabular-nums text-brand">
+                          {formatAverage(row.average)}
+                        </span>
+                      </div>
+
+                      <div className="progress mt-2">
+                        <div
+                          className="progress-bar"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+
+                      <div className="hint mt-1.5">
+                        Mín {row.min} · Máx {row.max} · {row.voteCount}{" "}
+                        {row.voteCount === 1 ? "voto" : "votos"}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         )}
 
-        <h2 style={resultsHeadingStyle}>Detalle por ítem</h2>
+        <h2 className="h2 mt-8">Detalle por ítem</h2>
 
         {items.length === 0 ? (
-          <p style={mutedStyle}>No hay ítems para mostrar.</p>
+          <p className="hint mt-3">No hay ítems para mostrar.</p>
         ) : (
-          <div style={{ display: "grid", gap: "1.25rem" }}>
+          <div className="mt-4 space-y-4">
             {items.map((item) => {
               const rows = (votesByItem.get(item.id) ?? []).sort((a, b) =>
                 nameOf(a.participant_id).localeCompare(nameOf(b.participant_id)),
               );
 
               return (
-                <div key={item.id}>
-                  <div style={{ fontWeight: 700 }}>{item.name}</div>
+                <div key={item.id} className="card card-pad">
+                  <div className="font-semibold text-fg">{item.name}</div>
                   {item.description && (
-                    <div style={{ ...mutedStyle, fontSize: "0.85rem" }}>
-                      {item.description}
-                    </div>
+                    <div className="hint">{item.description}</div>
                   )}
 
                   {rows.length === 0 ? (
-                    <p style={{ ...mutedStyle, marginTop: "0.35rem" }}>
-                      Este ítem no recibió votos.
-                    </p>
+                    <p className="hint mt-2">Este ítem no recibió votos.</p>
                   ) : (
-                    <ul style={resultListStyle}>
+                    <ul className="mt-3 space-y-1.5">
                       {rows.map((vote) => (
-                        <li key={vote.participant_id} style={resultRowStyle}>
-                          <div style={resultRowHeaderStyle}>
-                            <span>{nameOf(vote.participant_id)}</span>
-                          </div>
-                          <div style={resultStatsStyle}>
-                            Puntaje {vote.score}
-                          </div>
+                        <li
+                          key={vote.participant_id}
+                          className="flex items-center justify-between gap-3 rounded-lg bg-sunken px-3 py-1.5 text-sm"
+                        >
+                          <span className="truncate">
+                            {nameOf(vote.participant_id)}
+                          </span>
+                          <span className="flex-none font-semibold tabular-nums">
+                            {vote.score}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -602,15 +658,19 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "identify") {
     return (
       <section>
-        <h1>{mundialito?.name ?? "Mundialito"}</h1>
+        <p className="eyebrow">Inscripción</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
-          <p style={mutedStyle}>{mundialito.description}</p>
+          <p className="lead mt-2">{mundialito.description}</p>
         )}
 
-        <form onSubmit={onIdentify} style={nameFormStyle}>
-          <label style={nameLabelStyle}>
-            Tu nombre
+        <form onSubmit={onIdentify} className="card card-pad mt-6 space-y-4">
+          <div className="field">
+            <label className="label" htmlFor="voter-name">
+              Tu nombre
+            </label>
             <input
+              id="voter-name"
               type="text"
               value={nameInput}
               onChange={(event) => {
@@ -620,56 +680,32 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               placeholder="Ej: Ana"
               maxLength={100}
               autoFocus
-              style={nameInputStyle}
+              autoComplete="name"
+              className="input"
             />
-          </label>
+            <p className="hint">
+              No hace falta cuenta: este nombre identifica tus votos. Los
+              nombres repetidos están bien.
+            </p>
+          </div>
 
-          <p style={mutedStyle}>
-            No hace falta cuenta: este nombre identifica tus votos. Los
-            nombres repetidos están bien.
-          </p>
+          {error && (
+            <p className="alert alert-danger" role="alert">
+              {error}
+            </p>
+          )}
 
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
-
-          <button type="submit" disabled={submitting} style={submitButtonStyle}>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn btn-primary btn-block btn-lg"
+          >
             {submitting ? "Registrando…" : "Empezar a votar"}
           </button>
         </form>
 
-        {items.length > 0 && (
-          <div style={{ marginTop: "1.5rem" }}>
-            <p style={{ ...mutedStyle, fontWeight: 600 }}>
-              Vas a votar entre estos ítems:
-            </p>
-            <ul
-              style={{
-                listStyle: "none",
-                padding: 0,
-                margin: "0.5rem 0 0",
-                display: "grid",
-                gap: "0.35rem",
-              }}
-            >
-              {items.map((item) => (
-                <li key={item.id}>
-                  {item.name}
-                  {item.description && (
-                    <small style={mutedStyle}> — {item.description}</small>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
         {participants.length > 0 && (
-          <p
-            style={{
-              ...mutedStyle,
-              marginTop: "1.25rem",
-              fontSize: "0.9rem",
-            }}
-          >
+          <p className="hint mt-4">
             Ya se sumaron {participants.length}{" "}
             {participants.length === 1 ? "participante" : "participantes"}:{" "}
             {participants.map((p) => p.display_name).join(", ")}.
@@ -682,15 +718,25 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const allScored =
     items.length > 0 && items.every((item) => Number.isInteger(scores[item.id]));
 
+  const scoredCount = items.filter((item) =>
+    Number.isInteger(scores[item.id]),
+  ).length;
+  const progressPct =
+    items.length > 0 ? Math.round((scoredCount / items.length) * 100) : 0;
+
   return (
     <section>
-      <h1>{mundialito?.name ?? "Mundialito"}</h1>
+      <p className="eyebrow">Votación</p>
+      <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
 
       {editingName ? (
-        <form onSubmit={onSaveName} style={nameFormStyle}>
-          <label style={nameLabelStyle}>
-            Tu nombre
+        <form onSubmit={onSaveName} className="card card-pad mt-4 space-y-4">
+          <div className="field">
+            <label className="label" htmlFor="edit-voter-name">
+              Tu nombre
+            </label>
             <input
+              id="edit-voter-name"
               type="text"
               value={nameDraft}
               onChange={(event) => {
@@ -699,17 +745,21 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               }}
               maxLength={100}
               autoFocus
-              style={nameInputStyle}
+              className="input"
             />
-          </label>
+          </div>
 
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
+          {error && (
+            <p className="alert alert-danger" role="alert">
+              {error}
+            </p>
+          )}
 
-          <div style={nameActionsStyle}>
+          <div className="flex flex-wrap gap-2">
             <button
               type="submit"
               disabled={submitting}
-              style={nameSaveButtonStyle}
+              className="btn btn-primary"
             >
               {submitting ? "Guardando…" : "Guardar nombre"}
             </button>
@@ -717,252 +767,126 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               type="button"
               onClick={onCancelEditName}
               disabled={submitting}
-              style={nameCancelButtonStyle}
+              className="btn btn-ghost"
             >
               Cancelar
             </button>
           </div>
         </form>
       ) : (
-        <p style={{ color: "#666" }}>
-          Votando como <strong>{displayName}</strong>{" "}
+        <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2">
+          <span className="flex items-center gap-2 text-sm text-muted">
+            <span className="avatar" aria-hidden="true">
+              {displayName.trim().charAt(0)}
+            </span>
+            Votando como <strong className="text-fg">{displayName}</strong>
+          </span>
           <button
             type="button"
             onClick={onStartEditName}
             disabled={submitting}
-            style={linkButtonStyle}
+            className="btn btn-ghost btn-sm"
           >
             Editar nombre
-          </button>{" "}
+          </button>
           <button
             type="button"
             onClick={onSwitchIdentity}
             disabled={submitting}
-            style={linkButtonStyle}
+            className="btn btn-ghost btn-sm"
           >
             Votar con otro nombre
           </button>
-        </p>
+        </div>
       )}
 
       {items.length === 0 ? (
-        <p style={mutedStyle}>No hay ítems para votar.</p>
+        <p className="hint mt-6">No hay ítems para votar.</p>
       ) : (
-        <ol
-          style={{
-            listStyle: "none",
-            padding: 0,
-            marginTop: "1.5rem",
-            display: "grid",
-            gap: "1.5rem",
-          }}
-        >
-          {items.map((item, index) => (
-            <li key={item.id} style={{ display: "grid", gap: "0.5rem" }}>
-              <div>
-                <strong>
-                  {index + 1}. {item.name}
-                </strong>
-                {item.description && (
-                  <div style={{ ...mutedStyle, fontSize: "0.85rem" }}>
-                    {item.description}
-                  </div>
-                )}
-              </div>
+        <>
+          <div className="mt-6">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="hint">
+                {scoredCount} de {items.length} ítems puntuados
+              </span>
+              <span className="hint tabular-nums">{progressPct}%</span>
+            </div>
+            <div className="progress mt-2">
+              <div className="progress-bar" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
 
-              <div
-                style={scoreGridStyle}
-                role="group"
-                aria-label={`Puntaje de ${item.name}`}
-              >
-                {SCORE_OPTIONS.map((score) => (
-                  <button
-                    key={score}
-                    type="button"
-                    aria-pressed={scores[item.id] === score}
-                    onClick={() => onPickScore(item.id, score)}
-                    style={
-                      scores[item.id] === score
-                        ? { ...scoreButtonStyle, ...scoreButtonSelectedStyle }
-                        : scoreButtonStyle
-                    }
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ol>
+          <ol className="mt-5 space-y-3">
+            {items.map((item, index) => (
+              <li key={item.id} className="card card-pad">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-semibold tabular-nums text-subtle">
+                    {index + 1}
+                  </span>
+                  <span className="font-semibold text-fg">{item.name}</span>
+                  {Number.isInteger(scores[item.id]) ? (
+                    <span className="pill pill-success ml-auto">Puntuado</span>
+                  ) : null}
+                </div>
+
+                {item.description && (
+                  <div className="hint mt-1">{item.description}</div>
+                )}
+
+                <div
+                  className="mt-3 grid grid-cols-5 gap-1.5 sm:grid-cols-10"
+                  role="group"
+                  aria-label={`Puntaje de ${item.name}`}
+                >
+                  {SCORE_OPTIONS.map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      aria-pressed={scores[item.id] === score}
+                      onClick={() => onPickScore(item.id, score)}
+                      className={`choice min-h-11 px-0 tabular-nums ${
+                        scores[item.id] === score ? "choice-selected" : ""
+                      }`}
+                    >
+                      {score}
+                    </button>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
       )}
 
-      <div aria-live="polite">
+      <div aria-live="polite" className="mt-4 space-y-2">
         {saved && (
-          <p style={{ color: "seagreen", fontWeight: 600 }}>
+          <p className="alert alert-success" role="status">
             ¡Voto registrado! Podés modificarlo mientras esté abierta.
           </p>
         )}
         {/* Mientras se edita el nombre, el error se muestra junto al
             form (arriba) para no duplicar el mensaje. */}
         {!editingName && error && (
-          <p style={{ color: "crimson" }}>{error}</p>
+          <p className="alert alert-danger" role="alert">
+            {error}
+          </p>
         )}
       </div>
 
-      {items.length > 0 && !allScored && (
-        <p style={mutedStyle}>Puntuá todos los ítems para continuar.</p>
-      )}
+      <div className="mt-6 space-y-2">
+        {items.length > 0 && !allScored && (
+          <p className="hint">Puntuá todos los ítems para continuar.</p>
+        )}
 
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={!allScored || submitting}
-        style={{
-          ...submitButtonStyle,
-          cursor: allScored && !submitting ? "pointer" : "default",
-          opacity: allScored ? 1 : 0.5,
-        }}
-      >
-        {submitting ? "Enviando…" : "Confirmar votación"}
-      </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!allScored || submitting}
+          className="btn btn-primary btn-block btn-lg"
+        >
+          {submitting ? "Enviando…" : "Confirmar votación"}
+        </button>
+      </div>
     </section>
   );
 }
-
-const mutedStyle: React.CSSProperties = {
-  color: "#666",
-};
-
-const nameFormStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  marginTop: "1.5rem",
-};
-
-const nameLabelStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  fontSize: "0.9rem",
-  fontWeight: 500,
-};
-
-const nameInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
-
-const nameActionsStyle: React.CSSProperties = {
-  display: "inline-flex",
-  gap: "0.5rem",
-  alignItems: "center",
-  flexWrap: "wrap",
-};
-
-const nameSaveButtonStyle: React.CSSProperties = {
-  padding: "0.6rem 1rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "0.95rem",
-  cursor: "pointer",
-};
-
-const nameCancelButtonStyle: React.CSSProperties = {
-  padding: "0.6rem 1rem",
-  background: "white",
-  color: "black",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "0.95rem",
-  cursor: "pointer",
-};
-
-const scoreGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(2.75rem, 1fr))",
-  gap: "0.35rem",
-};
-
-const scoreButtonStyle: React.CSSProperties = {
-  minHeight: "2.75rem",
-  fontSize: "1rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  background: "white",
-  color: "black",
-  cursor: "pointer",
-};
-
-const scoreButtonSelectedStyle: React.CSSProperties = {
-  background: "black",
-  color: "white",
-  border: "1px solid black",
-  fontWeight: 700,
-};
-
-const submitButtonStyle: React.CSSProperties = {
-  width: "100%",
-  marginTop: "1.5rem",
-  padding: "0.9rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1.05rem",
-};
-
-const linkButtonStyle: React.CSSProperties = {
-  padding: 0,
-  background: "none",
-  border: "none",
-  color: "#0066cc",
-  fontSize: "0.9rem",
-  textDecoration: "underline",
-  cursor: "pointer",
-  font: "inherit",
-};
-
-const resultsHeadingStyle: React.CSSProperties = {
-  fontSize: "1.15rem",
-  marginTop: "2rem",
-  marginBottom: "0.75rem",
-};
-
-const resultListStyle: React.CSSProperties = {
-  listStyle: "none",
-  padding: 0,
-  margin: 0,
-  display: "grid",
-  gap: "0.5rem",
-};
-
-const resultRowStyle: React.CSSProperties = {
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  padding: "0.65rem 0.85rem",
-  background: "white",
-};
-
-const resultRowHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "baseline",
-  gap: "0.5rem",
-  fontWeight: 600,
-};
-
-const positionStyle: React.CSSProperties = {
-  minWidth: "1.75rem",
-  fontVariantNumeric: "tabular-nums",
-};
-
-const resultStatsStyle: React.CSSProperties = {
-  ...mutedStyle,
-  fontSize: "0.85rem",
-  marginTop: "0.15rem",
-};

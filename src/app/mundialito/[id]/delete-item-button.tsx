@@ -1,97 +1,48 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmButton } from "@/components/confirm-button";
 
 type Props = {
   itemId: string;
   name: string;
 };
 
+/**
+ * Borrado de un item durante la etapa de inscripcion.
+ * La confirmacion en dos pasos vive en <ConfirmButton>.
+ */
 export function DeleteItemButton({ itemId, name }: Props) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function onDelete() {
-    setPending(true);
-    setError(null);
-
+  async function onDelete(): Promise<string | null> {
     const response = await fetch(`/api/items/${itemId}`, { method: "DELETE" });
 
     // 404 = ya no existe (o no hay permiso). Se trata como borrado
-    // efectivo: cerrar la confirmación y refrescar la lista.
+    // efectivo: alcanza con refrescar la lista.
     if (response.status === 404) {
-      setConfirming(false);
-      setPending(false);
       router.refresh();
-      return;
+      return null;
     }
 
     if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "No se pudo eliminar.");
-      setPending(false);
-      // NO cerrar la confirmación: el <small> del error solo se
-      // renderiza dentro del bloque confirming (bug TASKS 27 —
-      // setConfirming(false) acá desmontaba el mensaje al toque).
-      return;
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      return data?.error ?? "No se pudo eliminar.";
     }
 
     router.refresh();
-  }
-
-  if (!confirming) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setError(null);
-          setConfirming(true);
-        }}
-        style={buttonStyle}
-        aria-label={`Eliminar ${name}`}
-      >
-        Eliminar
-      </button>
-    );
+    return null;
   }
 
   return (
-    <span
-      style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}
-    >
-      {error && <small style={{ color: "crimson" }}>{error}</small>}
-      <button
-        type="button"
-        onClick={onDelete}
-        disabled={pending}
-        style={{ ...buttonStyle, background: "crimson", color: "white" }}
-      >
-        {pending ? "..." : "Confirmar"}
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setError(null);
-          setConfirming(false);
-        }}
-        disabled={pending}
-        style={buttonStyle}
-      >
-        Cancelar
-      </button>
-    </span>
+    <ConfirmButton
+      label="Eliminar"
+      ariaLabel={`Eliminar ${name}`}
+      pendingLabel="Eliminando…"
+      tone="danger"
+      onConfirm={onDelete}
+    />
   );
 }
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.35rem 0.75rem",
-  background: "white",
-  color: "black",
-  border: "1px solid #ccc",
-  borderRadius: "0.35rem",
-  fontSize: "0.85rem",
-  cursor: "pointer",
-};

@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import QRCode from "qrcode";
 
 type Props = {
   mundialitoId: string;
 };
 
+/**
+ * Sin subscripcion real: la URL de la pagina no cambia despues de
+ * montar. useSyncExternalStore la necesita para saber cuando re-leer
+ * el snapshot.
+ */
+const subscribe = () => () => {};
+
+/**
+ * Bloque de "compartir para votar": enlace copiable + QR para el celular.
+ *
+ * La URL depende de `window`, asi que no se puede leer durante el SSR.
+ * useSyncExternalStore resuelve exactamente eso: getServerSnapshot
+ * devuelve null en el servidor y en la hidratacion (el markup coincide)
+ * y recien despues React pasa al snapshot del cliente. Es la alternativa
+ * sin `setState` dentro de un efecto.
+ */
 export function ShareLinks({ mundialitoId }: Props) {
-  const [url] = useState<string | null>(() =>
-    typeof window !== "undefined"
-      ? `${window.location.origin}/vote/${mundialitoId}`
-      : null,
+  const url = useSyncExternalStore(
+    subscribe,
+    () => `${window.location.origin}/vote/${mundialitoId}`,
+    () => null,
   );
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -20,12 +36,16 @@ export function ShareLinks({ mundialitoId }: Props) {
   useEffect(() => {
     if (url === null) return;
 
+    let cancelled = false;
+
     void (async () => {
       try {
         const dataUrl = await QRCode.toDataURL(url, {
           margin: 1,
           width: 240,
         });
+        if (cancelled) return;
+
         if (typeof dataUrl === "string") {
           setQrDataUrl(dataUrl);
           setQrError(null);
@@ -33,9 +53,13 @@ export function ShareLinks({ mundialitoId }: Props) {
           setQrError("No se pudo generar el código QR.");
         }
       } catch {
-        setQrError("No se pudo generar el código QR.");
+        if (!cancelled) setQrError("No se pudo generar el código QR.");
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [url]);
 
   async function handleCopy() {
@@ -71,73 +95,61 @@ export function ShareLinks({ mundialitoId }: Props) {
   }
 
   return (
-    <section style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
-      <h2 style={{ fontSize: "1.2rem", marginBottom: "0.75rem" }}>
-        Compartir para votar
-      </h2>
-      <p style={{ color: "#666", fontSize: "0.9rem", marginBottom: "1rem" }}>
-        Cualquier persona con este enlace puede votar mientras el Mundialito
-        esté ACTIVE.
+    <section className="card card-pad mt-6" aria-label="Compartir para votar">
+      <h2 className="h3">Compartí el link</h2>
+      <p className="hint mt-1">
+        Cualquiera con este enlace puede votar. Pasalo por WhatsApp o que
+        escaneen el QR.
       </p>
 
-      <div style={{ display: "grid", gap: "0.75rem" }}>
-        <button
-          type="button"
-          onClick={handleCopy}
-          style={{
-            ...buttonStyle,
-            background: "white",
-            color: "black",
-            border: "1px solid #ccc",
-          }}
-        >
-          {copied ? "¡Copiado!" : "Copiar enlace"}
-        </button>
-
-        {qrDataUrl && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginTop: "0.5rem",
-            }}
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            readOnly
+            value={url}
+            aria-label="Enlace para votar"
+            className="input flex-1 font-mono text-sm"
+            onFocus={(event) => event.currentTarget.select()}
+          />
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="btn btn-secondary sm:shrink-0"
           >
-            <img
-              src={qrDataUrl}
-              alt="Código QR para votar"
-              style={{
-                width: 240,
-                height: 240,
-                border: "1px solid #eee",
-                borderRadius: "0.5rem",
-              }}
-            />
-            <small style={{ color: "#666", fontSize: "0.8rem" }}>
-              Escaneá este código QR para votar
-            </small>
-          </div>
-        )}
+            {copied ? "¡Copiado!" : "Copiar enlace"}
+          </button>
+        </div>
 
-        {qrError && <p style={errorStyle}>{qrError}</p>}
+        {/* `bg-white` es intencional: el QR necesita fondo claro para
+            poder escanearse, incluso en tema oscuro. */}
+        {qrDataUrl ? (
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <div className="rounded-xl border border-line bg-white p-3">
+              {/* El QR es un data URL generado en el cliente: next/image no
+                  aporta nada (no hay nada que optimizar ni que traer por red). */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrDataUrl}
+                alt="Código QR con el enlace para votar"
+                width={200}
+                height={200}
+                className="h-auto w-full max-w-[200px]"
+              />
+            </div>
+            <p className="hint">Escaneá el QR para votar desde el celular</p>
+          </div>
+        ) : null}
+
+        {qrError ? (
+          <p className="alert alert-danger" role="alert">
+            {qrError}
+          </p>
+        ) : null}
+
+        <span className="sr-only" role="status">
+          {copied ? "Enlace copiado al portapapeles" : ""}
+        </span>
       </div>
     </section>
   );
 }
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "crimson",
-  fontSize: "0.9rem",
-  margin: 0,
-};

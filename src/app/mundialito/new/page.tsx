@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { AppHeader } from "@/components/app-header";
+import { MODE_DESCRIPTION } from "@/lib/ui/labels";
+
+export const metadata: Metadata = { title: "Nuevo torneo" };
 
 type SearchParams = Promise<{ error?: string }>;
 
@@ -67,129 +73,105 @@ export default async function NewMundialitoPage({
   const { error: errorMessage } = await searchParams;
 
   return (
-    <main
-      style={{
-        padding: "2rem",
-        maxWidth: 480,
-        margin: "0 auto",
-        fontFamily: "system-ui",
-      }}
-    >
-      <h1>Nuevo Mundialito</h1>
-      <p style={{ color: "#666" }}>
-        Empieza por el nombre. Después vas a agregar participantes e items.
-      </p>
+    <main className="flex-1 pb-16">
+      <AppHeader />
 
-      <form action={createMundialito} style={{ display: "grid", gap: "1rem" }}>
-        <label style={labelStyle}>
-          Nombre
-          <input
-            name="name"
-            type="text"
-            placeholder="Mundialito de alfajores"
-            maxLength={100}
-            required
-            autoFocus
-            style={inputStyle}
-          />
-        </label>
+      <div className="page max-w-[34rem]">
+        <Link
+          href="/"
+          className="text-sm text-muted no-underline hover:text-fg"
+        >
+          ← Volver
+        </Link>
 
-        <label style={labelStyle}>
-          Descripción <span style={{ color: "#999" }}>(opcional)</span>
-          <textarea
-            name="description"
-            placeholder="El mejor alfajor del barrio"
-            rows={3}
-            style={inputStyle}
-          />
-        </label>
+        <p className="eyebrow mt-6">Nuevo torneo</p>
+        <h1 className="h1 mt-2">Creá tu mundialito</h1>
+        <p className="lead mt-2">
+          Empezá por el nombre. Después vas a sumar participantes e ítems.
+        </p>
 
-        <fieldset style={fieldsetStyle}>
-          <legend style={legendStyle}>Modo de competición</legend>
+        {errorMessage ? (
+          <p className="alert alert-danger mt-6" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
-          <label style={radioStyle}>
-            <input type="radio" name="mode" value="RANKING" defaultChecked />
-            <span>
-              <strong>Ranking 1–10</strong>
-              <small style={smallStyle}>
-                Cada participante puntúa todos los ítems; gana el mejor promedio.
-              </small>
-            </span>
-          </label>
+        <form action={createMundialito} className="card card-pad mt-6 space-y-5">
+          <div className="field">
+            <label className="label" htmlFor="name">
+              Nombre
+            </label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Mundialito de alfajores"
+              maxLength={100}
+              required
+              autoFocus
+              className="input"
+            />
+          </div>
 
-          <label style={radioStyle}>
-            <input type="radio" name="mode" value="CRUCES" />
-            <span>
-              <strong>Eliminación directa</strong>
-              <small style={smallStyle}>
-                Los ítems se cruzan de a dos y el ganador avanza. Necesita 4, 8, 16 o 32 ítems.
-              </small>
-            </span>
-          </label>
-        </fieldset>
+          <div className="field">
+            <label className="label" htmlFor="description">
+              Descripción{" "}
+              <span className="font-normal text-subtle">(opcional)</span>
+            </label>
+            <textarea
+              id="description"
+              name="description"
+              placeholder="El mejor alfajor del barrio"
+              rows={3}
+              className="textarea"
+            />
+            <p className="hint">
+              Una línea para que tus amigos entiendan de qué se trata.
+            </p>
+          </div>
 
-        <button type="submit" style={buttonStyle}>
-          Crear Mundialito
-        </button>
-      </form>
+          <fieldset className="space-y-3 border-0 p-0">
+            <legend className="label mb-1">Modo de competición</legend>
 
-      {errorMessage && (
-        <p style={{ color: "crimson", marginTop: "1rem" }}>{errorMessage}</p>
-      )}
+            <label className="choice items-start justify-start text-left">
+              <input
+                type="radio"
+                name="mode"
+                value="RANKING"
+                defaultChecked
+                className="sr-only"
+              />
+              <span className="flex flex-col gap-1">
+                <span className="font-semibold">Ranking del 1 al 10</span>
+                <span className="hint">{MODE_DESCRIPTION.RANKING}</span>
+              </span>
+            </label>
+
+            <label className="choice items-start justify-start text-left">
+              <input
+                type="radio"
+                name="mode"
+                value="CRUCES"
+                className="sr-only"
+              />
+              <span className="flex flex-col gap-1">
+                <span className="font-semibold">Eliminación directa</span>
+                <span className="hint">{MODE_DESCRIPTION.CRUCES}</span>
+                <span className="hint">Requiere 4, 8, 16 o 32 ítems.</span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div className="flex flex-col gap-2 pt-1">
+            <button type="submit" className="btn btn-primary btn-block btn-lg">
+              Crear torneo
+            </button>
+            <Link href="/" className="btn btn-ghost btn-block">
+              Cancelar
+            </Link>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
-
-const fieldsetStyle: React.CSSProperties = {
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  padding: "0.75rem 1rem",
-  display: "grid",
-  gap: "0.75rem",
-};
-
-const legendStyle: React.CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const radioStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  alignItems: "flex-start",
-  fontSize: "0.95rem",
-  cursor: "pointer",
-};
-
-const smallStyle: React.CSSProperties = {
-  display: "block",
-  color: "#666",
-  fontSize: "0.8rem",
-  marginTop: "0.15rem",
-};

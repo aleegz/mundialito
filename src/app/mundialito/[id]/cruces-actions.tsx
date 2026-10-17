@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isValidBracketSize } from "@/lib/calculations/bracket";
+import {
+  actionLabelFor,
+  confirmTextFor,
+  type CrucesAction,
+} from "@/lib/ui/cruces-action-copy";
 
 type Props = {
   mundialitoId: string;
@@ -13,40 +18,6 @@ type Props = {
   openMatchId: string | null;
   /** true cuando quedan cruces PENDING con ambos slots (se puede avanzar). */
   hasPendingNext: boolean;
-};
-
-type Action =
-  | { kind: "patch"; target: "PARTICIPANTS_OPEN" | "PARTICIPANTS_LOCKED" }
-  | { kind: "draw" }
-  | { kind: "start" }
-  | { kind: "finalize" }
-  | { kind: "next" };
-
-const CONFIRM_TEXT: Record<Action["kind"], string> = {
-  patch: "",
-  draw: "¿Sortear el bracket? Se mezclan los ítems y se arman los cruces.",
-  start: "¿Iniciar la votación? Se abre el primer cruce.",
-  finalize:
-    "¿Finalizar el cruce abierto? Requiere que voten todos los participantes activos.",
-  next: "¿Abrir el siguiente cruce?",
-};
-
-const ACTION_LABEL: Record<Action["kind"], string> = {
-  patch: "",
-  draw: "Sortear",
-  start: "Iniciar votación",
-  finalize: "Finalizar cruce abierto",
-  next: "Abrir siguiente cruce",
-};
-
-const BUTTON: React.CSSProperties = {
-  padding: "0.35rem 0.75rem",
-  background: "white",
-  color: "black",
-  border: "1px solid #ccc",
-  borderRadius: "0.35rem",
-  fontSize: "0.85rem",
-  cursor: "pointer",
 };
 
 /**
@@ -60,6 +31,13 @@ const BUTTON: React.CSSProperties = {
  * transitions; /draw, /start, /finalize, /next). Aca solo se
  * deshabilitan los botones cuando la condicion de UI es obvia
  * (cantidad de items / participantes) para no depender del 409.
+ *
+ * Presentacion: la primera accion de la lista es la que el owner
+ * necesita hacer ahora y va como boton primario; el resto (ej.
+ * "Re-sortear") queda como secundario.
+ *
+ * El card es del componente, no de la pagina: cuando no hay nada que
+ * ofrecer devuelve null, y un wrapper externo dejaba un card vacio.
  */
 export function CrucesActions({
   mundialitoId,
@@ -71,7 +49,7 @@ export function CrucesActions({
 }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [confirm, setConfirm] = useState<Action | null>(null);
+  const [confirm, setConfirm] = useState<CrucesAction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (
@@ -91,22 +69,28 @@ export function CrucesActions({
   // calculados por la pagina (openMatchId / hasPendingNext).
   if (status === "DRAFT" && !validSize) {
     return (
-      <p style={{ marginTop: "0.5rem", color: "#888", fontSize: "0.9rem" }}>
-        Eliminación directa necesita 4, 8, 16 o 32 ítems para poder abrir
-        la inscripción.
-      </p>
+      <section className="card card-pad mt-6" aria-label="Acciones del torneo">
+        <h3 className="h3">Próximo paso</h3>
+        <p className="alert alert-warning mt-3">
+          Eliminación directa necesita 4, 8, 16 o 32 ítems para poder abrir la
+          inscripción.
+        </p>
+      </section>
     );
   }
 
   if (status === "PARTICIPANTS_OPEN" && participantsCount < 1) {
     return (
-      <p style={{ marginTop: "0.5rem", color: "#888", fontSize: "0.9rem" }}>
-        Necesitás al menos un participante para cerrar la inscripción.
-      </p>
+      <section className="card card-pad mt-6" aria-label="Acciones del torneo">
+        <h3 className="h3">Próximo paso</h3>
+        <p className="alert alert-warning mt-3">
+          Necesitás al menos un participante para cerrar la inscripción.
+        </p>
+      </section>
     );
   }
 
-  const actions: Action[] = [];
+  const actions: CrucesAction[] = [];
   if (status === "DRAFT") {
     actions.push({ kind: "patch", target: "PARTICIPANTS_OPEN" });
   } else if (status === "PARTICIPANTS_OPEN") {
@@ -131,19 +115,29 @@ export function CrucesActions({
     return null;
   }
 
-  function labelFor(action: Action): string {
-    if (action.kind === "patch") {
-      return action.target === "PARTICIPANTS_OPEN"
-        ? "Abrir inscripción"
-        : "Cerrar inscripción";
+  function hintFor(): string {
+    if (status === "DRAFT") {
+      return "Abrí la inscripción y compartí el link para que se sumen.";
     }
-    if (action.kind === "draw" && status === "DRAWN") {
-      return "Re-sortear";
+    if (status === "PARTICIPANTS_OPEN") {
+      return "Cuando estén todos anotados, cerrá la inscripción.";
     }
-    return ACTION_LABEL[action.kind];
+    if (status === "PARTICIPANTS_LOCKED") {
+      return "Es el momento de sortear los cruces.";
+    }
+    if (status === "DRAWN") {
+      return "Podés iniciar la votación o volver a sortear si no te gustó el orden.";
+    }
+    if (openMatchId !== null) {
+      return "Cuando voten todos los participantes activos, cerrá el cruce.";
+    }
+    if (hasPendingNext) {
+      return "Ya podés abrir el siguiente cruce del bracket.";
+    }
+    return "Esperando que se resuelvan los cruces en curso.";
   }
 
-  async function run(action: Action) {
+  async function run(action: CrucesAction) {
     setPending(true);
     setError(null);
 
@@ -218,61 +212,73 @@ export function CrucesActions({
 
   if (confirm === null) {
     return (
-      <p style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        {actions.map((action) => (
-          <button
-            key={labelFor(action)}
-            type="button"
-            onClick={() => {
-              setError(null);
-              setConfirm(action);
-            }}
-            style={BUTTON}
-          >
-            {labelFor(action)}…
-          </button>
-        ))}
-        {error && <small style={{ color: "crimson" }}> {error}</small>}
-      </p>
+      <section className="card card-pad mt-6" aria-label="Acciones del torneo">
+        <h3 className="h3">Próximo paso</h3>
+        <p className="hint mt-1">{hintFor()}</p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {actions.map((action, index) => (
+            <button
+              key={actionLabelFor(action, status)}
+              type="button"
+              onClick={() => {
+                setError(null);
+                setConfirm(action);
+              }}
+              className={`btn ${index === 0 ? "btn-primary" : "btn-secondary"}`}
+            >
+              {actionLabelFor(action, status)}
+            </button>
+          ))}
+        </div>
+
+        {error ? (
+          <p className="alert alert-danger mt-3" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </section>
     );
   }
 
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        gap: "0.5rem",
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginTop: "0.5rem",
-      }}
-    >
-      <small style={{ color: "#666" }}>
-        {CONFIRM_TEXT[confirm.kind]}
-        {confirm.kind === "patch" &&
-          confirm.target === "PARTICIPANTS_OPEN" &&
-          " Después no se podrán editar los ítems."}
-      </small>
-      {error && <small style={{ color: "crimson" }}>{error}</small>}
-      <button
-        type="button"
-        onClick={() => run(confirm)}
-        disabled={pending}
-        style={{ ...BUTTON, background: "crimson", color: "white" }}
-      >
-        {pending ? "..." : "Confirmar"}
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setError(null);
-          setConfirm(null);
-        }}
-        disabled={pending}
-        style={BUTTON}
-      >
-        Cancelar
-      </button>
-    </span>
+    <section className="card card-pad mt-6" aria-label="Acciones del torneo">
+      <h3 className="h3">Próximo paso</h3>
+
+      <div className="mt-3 space-y-3">
+        {/* La copia vive en lib/ui/cruces-action-copy: nunca vacia. */}
+        <p className="alert alert-warning" role="status">
+          {confirmTextFor(confirm)}
+        </p>
+
+        {error ? (
+          <p className="alert alert-danger" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => run(confirm)}
+            disabled={pending}
+            className="btn btn-primary"
+          >
+            {pending ? "Un momento…" : "Sí, confirmar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setConfirm(null);
+            }}
+            disabled={pending}
+            className="btn btn-ghost"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }

@@ -13,16 +13,27 @@ import { CrucesVoteClient } from "./cruces-vote-client";
  *
  *   RANKING -> VoteClient (ballot 1-10 / resultados)
  *   CRUCES  -> CrucesVoteClient (bracket A/B)
+ *
+ * Tres estados explicitos: cargando / no existe / listo. Antes el caso
+ * "no existe" dejaba `mode` en null y la pantalla quedaba en
+ * "Cargando…" para siempre (un link viejo o mal copiado nunca
+ * resolvia); ahora muestra un mensaje claro.
  */
+type State =
+  | { kind: "loading" }
+  | { kind: "missing" }
+  | { kind: "ready"; mode: "RANKING" | "CRUCES" };
+
 export function VoteModeSwitch({ mundialitoId }: { mundialitoId: string }) {
-  const [mode, setMode] = useState<"RANKING" | "CRUCES" | null>(null);
+  const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       if (!isUuid(mundialitoId)) {
-        return; // los clients internos ya resuelven notfound.
+        setState({ kind: "missing" });
+        return;
       }
 
       const supabase = createClient();
@@ -33,9 +44,16 @@ export function VoteModeSwitch({ mundialitoId }: { mundialitoId: string }) {
         .maybeSingle();
 
       if (cancelled) return;
-      if (!data) return; // notfound lo maneja el client elegido.
 
-      setMode(data.mode === "CRUCES" ? "CRUCES" : "RANKING");
+      if (!data) {
+        setState({ kind: "missing" });
+        return;
+      }
+
+      setState({
+        kind: "ready",
+        mode: data.mode === "CRUCES" ? "CRUCES" : "RANKING",
+      });
     }
 
     void load();
@@ -44,11 +62,37 @@ export function VoteModeSwitch({ mundialitoId }: { mundialitoId: string }) {
     };
   }, [mundialitoId]);
 
-  if (mode === null) {
-    return <p>Cargando…</p>;
+  if (state.kind === "loading") {
+    return (
+      <div className="card card-pad" role="status" aria-live="polite">
+        <span className="sr-only">Preparando la votación…</span>
+        <div className="animate-pulse space-y-4" aria-hidden="true">
+          <div className="h-4 w-24 rounded-lg bg-sunken" />
+          <div className="h-7 w-2/3 rounded-lg bg-sunken" />
+          <div className="h-4 w-full rounded-lg bg-sunken" />
+          <div className="h-11 w-full rounded-lg bg-sunken" />
+          <div className="h-11 w-full rounded-lg bg-sunken" />
+        </div>
+      </div>
+    );
   }
 
-  if (mode === "CRUCES") {
+  if (state.kind === "missing") {
+    return (
+      <div className="empty">
+        <span className="text-4xl" aria-hidden="true">
+          🔍
+        </span>
+        <h1 className="h3 mt-2">No encontramos este torneo</h1>
+        <p className="hint max-w-xs">
+          Puede que el link esté mal copiado o que el torneo ya no exista.
+          Pedile a quien te lo compartió que te lo mande de nuevo.
+        </p>
+      </div>
+    );
+  }
+
+  if (state.mode === "CRUCES") {
     return <CrucesVoteClient mundialitoId={mundialitoId} />;
   }
 

@@ -74,7 +74,7 @@ export function AddParticipantsForm({ mundialitoId, status, mode }: Props) {
   if (status === "ACTIVE") {
     // La lista ya no se precarga: se arma sola mientras vota la gente.
     return (
-      <p style={{ color: "#888" }}>
+      <p className="hint">
         No hace falta cargar la lista: quien entra al link de votación se
         registra con su nombre al votar.
       </p>
@@ -86,72 +86,49 @@ export function AddParticipantsForm({ mundialitoId, status, mode }: Props) {
     // (el owner no carga nombres, solo excluye durante el torneo).
     if (mode === "CRUCES" && status === "PARTICIPANTS_OPEN") {
       return (
-        <p style={{ color: "#888" }}>
+        <p className="hint">
           Los participantes se suman solos desde el link de inscripción.
         </p>
       );
     }
 
     return (
-      <p style={{ color: "#888" }}>
+      <p className="hint">
         La lista de participantes no se puede modificar en este estado.
       </p>
     );
   }
 
   return (
-    <form action={onSubmit} style={{ display: "grid", gap: "0.75rem" }}>
-      <label style={labelStyle}>
-        Participantes{" "}
-        <span style={{ color: "#999", fontWeight: "400" }}>
-          (uno por línea)
-        </span>
+    <form action={onSubmit} className="space-y-3">
+      <div className="field">
+        <label className="label" htmlFor="participants-names">
+          Participantes{" "}
+          <span className="font-normal text-subtle">(uno por línea)</span>
+        </label>
         <textarea
+          id="participants-names"
           ref={formRef}
           name="names"
           rows={5}
           placeholder={"Juan\nPedro\nAna\nMartín"}
-          style={inputStyle}
+          className="textarea"
         />
-      </label>
+      </div>
 
-      {error && <p style={errorStyle}>{error}</p>}
+      {error ? (
+        <p className="alert alert-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-      <button type="submit" disabled={pending} style={buttonStyle}>
-        {pending ? "Agregando..." : "Agregar participantes"}
+      <button
+        type="submit"
+        disabled={pending}
+        className="btn btn-primary btn-block"
+      >
+        {pending ? "Agregando…" : "Agregar participantes"}
       </button>
     </form>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-  fontFamily: "inherit",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.35rem",
-  fontSize: "0.9rem",
-  fontWeight: "500",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "crimson",
-  fontSize: "0.9rem",
-};

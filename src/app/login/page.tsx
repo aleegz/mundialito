@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { AuthShell } from "@/components/auth-shell";
+
+export const metadata: Metadata = { title: "Entrar" };
 
 export default async function LoginPage({
   searchParams,
@@ -31,63 +35,59 @@ export default async function LoginPage({
   const { error: errorMessage } = await searchParams;
 
   return (
-    <main
-      style={{
-        padding: "2rem",
-        maxWidth: 400,
-        margin: "0 auto",
-        fontFamily: "system-ui",
-      }}
+    <AuthShell
+      title="Entrá a tu cuenta"
+      lead="Organizá torneos, invitá a tus amigos y seguí los resultados en vivo."
+      footer={
+        <>
+          ¿Todavía no tenés cuenta?{" "}
+          <Link href="/register" className="font-medium text-brand no-underline">
+            Creá una
+          </Link>
+        </>
+      }
     >
-      <h1>🏆 Mundialito</h1>
-      <p>Ingresá para crear o participar de un mundialito.</p>
+      {errorMessage ? (
+        <p className="alert alert-danger mb-5" role="alert">
+          {errorMessage}
+        </p>
+      ) : null}
 
-      <form action={login} style={{ display: "grid", gap: "1rem" }}>
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          autoComplete="email"
-          required
-          style={inputStyle}
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="Contraseña"
-          autoComplete="current-password"
-          required
-          style={inputStyle}
-        />
-        <button type="submit" style={buttonStyle}>
+      <form action={login} className="space-y-4">
+        <div className="field">
+          <label className="label" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="vos@ejemplo.com"
+            autoComplete="email"
+            required
+            className="input"
+          />
+        </div>
+
+        <div className="field">
+          <label className="label" htmlFor="password">
+            Contraseña
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Tu contraseña"
+            autoComplete="current-password"
+            required
+            className="input"
+          />
+        </div>
+
+        <button type="submit" className="btn btn-primary btn-block btn-lg">
           Entrar
         </button>
       </form>
-
-      {errorMessage && (
-        <p style={{ color: "crimson", marginTop: "1rem" }}>{errorMessage}</p>
-      )}
-
-      <p style={{ marginTop: "1rem" }}>
-        ¿No tenés cuenta? <Link href="/register">Registrate</Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  border: "1px solid #ccc",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: "0.75rem",
-  background: "black",
-  color: "white",
-  border: "none",
-  borderRadius: "0.5rem",
-  fontSize: "1rem",
-  cursor: "pointer",
-};
