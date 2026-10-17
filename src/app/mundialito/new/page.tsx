@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app-header";
 import { MODE_DESCRIPTION } from "@/lib/ui/labels";
+import { ownerDisplayName } from "@/lib/validation/participant-name";
 
 export const metadata: Metadata = { title: "Nuevo torneo" };
 
@@ -67,6 +68,38 @@ export default async function NewMundialitoPage({
       );
     }
 
+    /**
+     * El owner queda anotado al crear el torneo (no se le pregunta):
+     * compite sin tener que "sumarse" por el link y la lista de
+     * participantes arranca con el. RLS lo permite sin migracion:
+     * participants_insert de 002 autoriza al owner en DRAFT y no
+     * restringe auth_user_id.
+     */
+    const { error: participantError } = await supabase
+      .from("participants")
+      .insert({
+        mundialito_id: data.id,
+        display_name: ownerDisplayName({
+          fullName: user.user_metadata?.full_name,
+          email: user.email,
+        }),
+        auth_user_id: user.id,
+      });
+
+    if (participantError) {
+      /**
+       * El torneo ya existe: no se aborta la creacion por esto (peor
+       * seria dejarlo a medias y que lo cree dos veces). Queda el
+       * fallback del link de votacion, donde la identidad por cuenta no
+       * lo encuentra y se registra con su nombre. Se loguea para que no
+       * sea una falla invisible.
+       */
+      console.error(
+        "No se pudo anotar al owner como participante:",
+        participantError.message,
+      );
+    }
+
     redirect(`/mundialito/${data.id}`);
   }
 
@@ -87,7 +120,8 @@ export default async function NewMundialitoPage({
         <p className="eyebrow mt-6">Nuevo torneo</p>
         <h1 className="h1 mt-2">Creá tu mundialito</h1>
         <p className="lead mt-2">
-          Empezá por el nombre. Después vas a sumar participantes e ítems.
+          Empezá por el nombre y el modo: los ítems vienen después, y los
+          participantes se suman solos desde el link.
         </p>
 
         {errorMessage ? (

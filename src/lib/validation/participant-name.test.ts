@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  DEFAULT_OWNER_NAME,
   MAX_PARTICIPANT_NAME_LENGTH,
+  ownerDisplayName,
   validateParticipantName,
   cleanParticipantNames,
 } from "@/lib/validation/participant-name";
@@ -85,5 +87,44 @@ describe("cleanParticipantNames", () => {
 
   it("conserva el orden de entrada", () => {
     expect(cleanParticipantNames(["c", "a", "b"])).toEqual(["c", "a", "b"]);
+  });
+});
+
+describe("ownerDisplayName", () => {
+  it("prefiere el nombre de perfil si existe (OAuth)", () => {
+    expect(
+      ownerDisplayName({ fullName: "Alejandro", email: "ale@mail.com" }),
+    ).toBe("Alejandro");
+  });
+
+  it("cae en la parte local del email (registro con email+password)", () => {
+    expect(ownerDisplayName({ email: "ale@mail.com" })).toBe("ale");
+  });
+
+  it("hace trim del nombre de perfil", () => {
+    expect(ownerDisplayName({ fullName: "  Ale  ", email: "x@y.com" })).toBe(
+      "Ale",
+    );
+  });
+
+  it("usa el email entero si la parte local no sirve", () => {
+    expect(ownerDisplayName({ email: "@mail.com" })).toBe("@mail.com");
+  });
+
+  it("ignora un nombre de perfil vacío o demasiado largo", () => {
+    expect(ownerDisplayName({ fullName: "   ", email: "ale@mail.com" })).toBe(
+      "ale",
+    );
+    expect(
+      ownerDisplayName({ fullName: "a".repeat(101), email: "ale@mail.com" }),
+    ).toBe("ale");
+  });
+
+  it("nunca devuelve vacío: cae en el default (la DB exige nombre)", () => {
+    expect(ownerDisplayName({})).toBe(DEFAULT_OWNER_NAME);
+    expect(ownerDisplayName({ fullName: null, email: null })).toBe(
+      DEFAULT_OWNER_NAME,
+    );
+    expect(ownerDisplayName({ email: "   " })).toBe(DEFAULT_OWNER_NAME);
   });
 });

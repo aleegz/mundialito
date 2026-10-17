@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { findOwnParticipant } from "@/lib/supabase/own-participant";
 import { isUuid } from "@/lib/validation/uuid";
 import type { Database } from "@/types/database.types";
 import { Bracket } from "@/components/bracket";
@@ -131,6 +132,16 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
 
+  /**
+   * Identidad por cuenta: se consulta una sola vez por visita. Si la
+   * cuenta no tiene fila en este mundialito no hay por que repetir la
+   * consulta en cada tick del polling.
+   */
+  const accountIdentityRef = useRef<{ resolved: boolean; id: string | null }>({
+    resolved: false,
+    id: null,
+  });
+
   const applySnapshot = useCallback((snap: Snapshot) => {
     const open = snap.matches.find((m) => m.status === "OPEN") ?? null;
     const key = `${snap.mundialito.status}:${open?.id ?? "-"}:${
@@ -239,6 +250,31 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       const meRow = meResult?.data ?? null;
       if (storedId && !meRow) {
         window.localStorage.removeItem(storageKey(mundialitoId));
+      }
+
+      /**
+       * Sin identidad local pero con sesion: si la cuenta ya tiene fila
+       * en este mundialito (el owner se anota al crear el torneo) se
+       * adopta — pedirle el nombre otra vez crearia un duplicado,
+       * porque el auto-registro anonimo no puede reclamar una fila con
+       * cuenta—. La consulta se hace una sola vez por visita.
+       */
+      let me = meRow;
+      if (!me) {
+        if (!accountIdentityRef.current.resolved) {
+          const own = await findOwnParticipant(supabase, mundialitoId);
+          accountIdentityRef.current = { resolved: true, id: own?.id ?? null };
+        }
+
+        const ownId = accountIdentityRef.current.id;
+        if (ownId) {
+          me =
+            (participantsResult.data ?? []).find((p) => p.id === ownId) ??
+            null;
+          if (me) {
+            window.localStorage.setItem(storageKey(mundialitoId), me.id);
+          }
+        }
       }
 
       applySnapshot({
@@ -621,17 +657,22 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             </>
           )}
 
-          {me && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={onSwitchIdentity}
-                className="btn btn-ghost btn-sm"
-              >
-                Cambiar de nombre
-              </button>
-            </div>
-          )}
+          {me &&
+            (me.auth_user_id ? (
+              <p className="hint mt-4">
+                Tu nombre sale de tu cuenta: no se cambia desde acá.
+              </p>
+            ) : (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={onSwitchIdentity}
+                  className="btn btn-ghost btn-sm"
+                >
+                  Cambiar de nombre
+                </button>
+              </div>
+            ))}
 
           {error && (
             <p className="alert alert-danger mt-4" role="alert">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { findOwnParticipant } from "@/lib/supabase/own-participant";
 import { isUuid } from "@/lib/validation/uuid";
 import {
   calculateItemResults,
@@ -109,6 +110,13 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [nameInput, setNameInput] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  /**
+   * true cuando la identidad de este navegador viene de la CUENTA (el
+   * owner se anota al crear el torneo) y no de un auto-registro. El
+   * nombre de esa fila no se puede editar —RLS: participants_update_self
+   * exige auth_user_id null— asi que la UI no ofrece editarlo.
+   */
+  const [identityFromAccount, setIdentityFromAccount] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,10 +234,24 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       // Sin fila para el id guardado = identidad invalida (borrada,
       // u otro mundialito): se descarta y se vuelve al registro.
-      const me = participantResult?.data ?? null;
+      /**
+       * Identidad por cuenta (se consulta una sola vez, y solo si hay
+       * sesion): el owner se anota al crear el torneo, asi que si este
+       * navegador es suyo no hay que pedirle el nombre —pedirlo crearia
+       * un participante duplicado—. Ademas define si su nombre se puede
+       * editar: la fila con cuenta no se renombra por el camino self
+       * (RLS: participants_update_self exige auth_user_id null).
+       */
+      const own = await findOwnParticipant(supabase, mundialitoId);
+      let me = participantResult?.data ?? null;
 
       if (storedId && !me) {
         window.localStorage.removeItem(storageKey(mundialitoId));
+      }
+
+      if (!me && own) {
+        window.localStorage.setItem(storageKey(mundialitoId), own.id);
+        me = { id: own.id, display_name: own.display_name };
       }
 
       setMundialito(data);
@@ -240,6 +262,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       if (me) {
         setSelectedId(me.id);
         setDisplayName(me.display_name);
+        setIdentityFromAccount(own?.id === me.id);
         // Prefill: si este navegador ya voto, se recuperan los puntajes.
         const existing = await fetchExistingVotes(mundialitoId, me.id);
         if (cancelled) return;
@@ -398,6 +421,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     setSelectedId(null);
     setDisplayName("");
     setNameInput("");
+    setIdentityFromAccount(false);
     setNameDraft("");
     setEditingName(false);
     setScores({});
@@ -781,22 +805,31 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
             </span>
             Votando como <strong className="text-fg">{displayName}</strong>
           </span>
-          <button
-            type="button"
-            onClick={onStartEditName}
-            disabled={submitting}
-            className="btn btn-ghost btn-sm"
-          >
-            Editar nombre
-          </button>
-          <button
-            type="button"
-            onClick={onSwitchIdentity}
-            disabled={submitting}
-            className="btn btn-ghost btn-sm"
-          >
-            Votar con otro nombre
-          </button>
+
+          {identityFromAccount ? (
+            <span className="hint">
+              Tu nombre sale de tu cuenta: no se cambia desde acá.
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onStartEditName}
+                disabled={submitting}
+                className="btn btn-ghost btn-sm"
+              >
+                Editar nombre
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchIdentity}
+                disabled={submitting}
+                className="btn btn-ghost btn-sm"
+              >
+                Votar con otro nombre
+              </button>
+            </>
+          )}
         </div>
       )}
 

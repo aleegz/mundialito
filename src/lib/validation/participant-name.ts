@@ -42,3 +42,36 @@ export function validateParticipantName(raw: unknown): NameValidation {
 export function cleanParticipantNames(names: readonly string[]): string[] {
   return names.map((name) => name.trim()).filter(Boolean);
 }
+
+/**
+ * Nombre por defecto si no se puede derivar nada del perfil. Existe
+ * para garantizar que el INSERT del owner nunca viole el CHECK
+ * `length(trim(display_name)) > 0`.
+ */
+export const DEFAULT_OWNER_NAME = "Organizador";
+
+/**
+ * Nombre con el que se anota el owner al crear el torneo. No se le
+ * pregunta: se deriva de su cuenta (nombre de perfil si algun dia hay
+ * OAuth, si no la parte local del email). Devuelve siempre un nombre
+ * valido.
+ */
+export function ownerDisplayName(input: {
+  fullName?: unknown;
+  email?: unknown;
+}): string {
+  const candidates: unknown[] = [input.fullName];
+
+  if (typeof input.email === "string") {
+    // "ale@gmail.com" -> "ale" (lo que sus amigos reconocen), y si la
+    // parte local no sirve, el email entero como ultimo recurso.
+    candidates.push(input.email.split("@")[0], input.email);
+  }
+
+  for (const candidate of candidates) {
+    const validated = validateParticipantName(candidate);
+    if (validated.ok) return validated.value;
+  }
+
+  return DEFAULT_OWNER_NAME;
+}

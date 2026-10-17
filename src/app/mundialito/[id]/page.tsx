@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { modeMeta, statusMeta } from "@/lib/ui/labels";
-import { AddParticipantsForm } from "./participants-form";
+import { ParticipantsHint } from "./participants-hint";
 import { DeleteParticipantButton } from "./delete-participant-button";
 import { ToggleParticipantStatusButton } from "./toggle-participant-status-button";
 import { AddItemsForm } from "./items-form";
@@ -59,6 +59,14 @@ export default async function MundialitoPage({ params }: { params: Params }) {
 
   const isOwner = mundialito.owner_id === user.id;
   const isCruces = mundialito.mode === "CRUCES";
+
+  /**
+   * El owner se anota como participante al crear el torneo, pero los
+   * mundialitos viejos (creados antes de eso) no lo tienen: la pista de
+   * DRAFT no puede afirmar algo que no es cierto.
+   */
+  const ownerJoined =
+    participants?.some((p) => p.auth_user_id === user.id) ?? false;
 
   const openMatch = (matches ?? []).find((m) => m.status === "OPEN");
   const hasPendingNext = (matches ?? []).some(
@@ -130,24 +138,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           </Link>
         ) : null}
 
-        {isOwner && isCruces && mundialito.status === "PARTICIPANTS_OPEN" ? (
-          <Link
-            href={`/vote/${id}`}
-            className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
-          >
-            <span>
-              <span className="block font-semibold text-fg">
-                Sumate vos también
-              </span>
-              <span className="hint">
-                Anotá tu nombre antes del sorteo para competir en el bracket.
-              </span>
-            </span>
-            <span aria-hidden="true" className="text-brand">
-              →
-            </span>
-          </Link>
-        ) : null}
+        {/* "Sumate vos también" ya no existe: el owner se anota como
+            participante al crear el torneo. */}
 
         {/* Controles del organizador. El card lo pone cada componente:
             puede no haber ninguna accion (FINISHED) y entonces devuelve
@@ -210,10 +202,10 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           </div>
 
           <div className="mt-4">
-            <AddParticipantsForm
-              mundialitoId={id}
+            <ParticipantsHint
               status={mundialito.status}
               mode={mundialito.mode}
+              ownerJoined={ownerJoined}
             />
           </div>
 

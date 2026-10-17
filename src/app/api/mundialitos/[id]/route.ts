@@ -39,9 +39,11 @@ const CRUCES_TRANSITIONS = {
  *
  * Se implemento como PATCH (y no Server Action) porque TODA la
  * mutacion de la pagina de detalle pasa hoy por API routes llamados
- * desde client components con router.refresh() (participants-form,
- * items-form, delete-*-button): un Server Action introduciria un
- * segundo estilo de mutacion en la misma pagina.
+ * desde client components con router.refresh() (items-form,
+ * edit-mundialito-form, delete-*-button,
+ * toggle-participant-status-button, status-actions, cruces-actions):
+ * un Server Action introduciria un segundo estilo de mutacion en la
+ * misma pagina.
  */
 export async function PATCH(
   request: Request,
