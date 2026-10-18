@@ -48,24 +48,23 @@ export function AddItemsForm({ mundialitoId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   /** El refresh de la lista va como transicion: no bloquea ni parpadea. */
-  const [, startTransition] = useTransition();
-
+  const [refreshing, startTransition] = useTransition();
   /**
-   * Devuelve al input lo que se habia mandado, pero solo si el usuario
-   * no empezo a escribir el siguiente item mientras viajaba el POST.
+   * Mientras viaja el POST o entra la lista nueva, el input queda de solo
+   * lectura (conserva el foco, asi el teclado del celular no se cierra):
+   * el nombre que se esta agregando sigue a la vista y no se edita a
+   * medias.
    */
-  function restore(value: string) {
-    setText((current) => (current === "" ? value : current));
-  }
+  const busy = pending || refreshing;
 
-  async function submit(names: string[]) {
+  async function submit(names: string[], clearInput: boolean) {
     /**
-     * Limpieza optimista: el input queda listo para el siguiente item
-     * sin esperar al servidor. Y no se deshabilita mientras vuela el
-     * POST: deshabilitarlo en el celular bajaria el teclado.
+     * El input NO se limpia aca: el nombre se queda a la vista mientras
+     * viaja el POST y se borra recien cuando entra la lista nueva, en la
+     * misma transicion (abajo). Limpiarlo antes hacia que el nombre
+     * desapareciera con el boton todavia en "Agregando…".
      */
-    const previous = text;
-    setText("");
+    const submitted = text;
     setPending(true);
     setError(null);
     setNote(null);
@@ -79,9 +78,10 @@ export function AddItemsForm({ mundialitoId }: Props) {
     const data = await response.json().catch(() => null);
     setPending(false);
 
+    // El input nunca se limpio, asi que no hay nada que devolver si algo
+    // falla: el texto sigue ahi esperando otro intento.
     if (!response.ok) {
       setError(data?.error ?? "No se pudieron agregar los ítems.");
-      restore(previous);
       return;
     }
 
@@ -90,7 +90,6 @@ export function AddItemsForm({ mundialitoId }: Props) {
 
     if (inserted === 0) {
       setError("No se pudo agregar el ítem.");
-      restore(previous);
       return;
     }
 
@@ -104,10 +103,31 @@ export function AddItemsForm({ mundialitoId }: Props) {
       setNote(addedItemsMessage(inserted, names.length));
     }
 
-    startTransition(() => router.refresh());
+    /**
+     * La limpieza del input va en la MISMA transicion que la lista
+     * nueva: el nombre desaparece exactamente cuando el item aparece,
+     * no antes. Si el usuario ya arranco a escribir el siguiente, su
+     * texto no se pisa.
+     */
+    startTransition(() => {
+      if (clearInput) {
+        setText((current) => (current === submitted ? "" : current));
+      }
+
+      router.refresh();
+    });
   }
 
-  function addFromText(raw: string) {
+  /**
+   * `clearInput` distingue las dos entradas: lo que el usuario tipeo
+   * (Enter o "Agregar") se consume y el input se vacia al confirmar; un
+   * pegado masivo no pasa por el input, asi que no lo toca.
+   */
+  function addFromText(raw: string, clearInput: boolean) {
+    // Con un alta ya en vuelo, no se encola otro: el servidor no tiene
+    // unique y un segundo Enter se llevaria un item duplicado.
+    if (busy) return;
+
     const names = uniqueItems(splitItemInput(raw));
 
     if (names.length === 0) return;
@@ -119,7 +139,7 @@ export function AddItemsForm({ mundialitoId }: Props) {
       return;
     }
 
-    void submit(names);
+    void submit(names, clearInput);
   }
 
   function close() {
@@ -133,7 +153,7 @@ export function AddItemsForm({ mundialitoId }: Props) {
     if (event.key === "Enter") {
       // Enter suma de a uno (teclado fisico); nunca manda un form.
       event.preventDefault();
-      addFromText(text);
+      addFromText(text, true);
       return;
     }
 
@@ -148,9 +168,10 @@ export function AddItemsForm({ mundialitoId }: Props) {
     // Una sola linea: pegado normal, queda en el input para editarla.
     if (!pasted.includes("\n")) return;
 
-    // Varias lineas: es una lista, no un nombre. Un solo POST.
+    // Varias lineas: es una lista, no un nombre. Un solo POST, y el
+    // input queda como estaba (nunca contuvo ese texto).
     event.preventDefault();
-    addFromText(pasted);
+    addFromText(pasted, false);
   }
 
   if (!open) {
@@ -189,6 +210,10 @@ export function AddItemsForm({ mundialitoId }: Props) {
           autoComplete="off"
           enterKeyHint="enter"
           aria-label="Nombre del ítem"
+          // Solo lectura mientras el alta esta en vuelo: el nombre sigue a
+          // la vista, el foco y el teclado no se van, y no se edita a
+          // medias lo que ya se mando a guardar.
+          readOnly={busy}
           autoFocus
         />
 
@@ -197,11 +222,11 @@ export function AddItemsForm({ mundialitoId }: Props) {
           // Evita que el toque le saque el foco al input: en el celular
           // eso bajaria el teclado entre item e item.
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => addFromText(text)}
-          disabled={pending || text.trim() === ""}
+          onClick={() => addFromText(text, true)}
+          disabled={busy || text.trim() === ""}
           className="btn btn-primary btn-sm"
         >
-          {pending ? "Agregando…" : "Agregar"}
+          {busy ? "Agregando…" : "Agregar"}
         </button>
 
         <button
