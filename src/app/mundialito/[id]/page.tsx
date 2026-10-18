@@ -271,16 +271,9 @@ export default async function MundialitoPage({ params }: { params: Params }) {
             <span className="hint">{items?.length ?? 0}</span>
           </div>
 
-          <div className="mt-4">
-            <AddItemsForm
-              mundialitoId={id}
-              isDraft={mundialito.status === "DRAFT"}
-            />
-          </div>
-
-          {items?.length ? (
-            <ul className="mt-2 divide-y divide-line">
-              {items.map((i) => (
+          {items?.length || (isOwner && mundialito.status === "DRAFT") ? (
+            <ul className="mt-4 divide-y divide-line">
+              {items?.map((i) => (
                 <li
                   key={i.id}
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5"
@@ -299,6 +292,12 @@ export default async function MundialitoPage({ params }: { params: Params }) {
                   ) : null}
                 </li>
               ))}
+
+              {/* El alta vive al final de la lista (patron "+ New"): cada
+                  item nuevo aparece arriba, en su lugar definitivo. */}
+              {isOwner && mundialito.status === "DRAFT" ? (
+                <AddItemsForm mundialitoId={id} />
+              ) : null}
             </ul>
           ) : (
             <p className="hint mt-4">Todavía no hay ítems.</p>
