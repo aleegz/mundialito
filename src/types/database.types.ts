@@ -327,6 +327,13 @@ export type Database = {
         Args: { target_mundialito_id: string }
         Returns: boolean
       }
+      match_voter_count: {
+        Args: {
+          p_match_id: string
+          p_vote_round?: number
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

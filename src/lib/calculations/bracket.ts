@@ -177,6 +177,46 @@ export function tallyMatch(
   return { a, b, total, tie, winnerItemId };
 }
 
+/** Tally visible de un cruce: votos de cada contendiente en su ronda actual. */
+export type MatchTally = { a: number; b: number; total: number };
+
+/**
+ * Tally por cruce, para pintar los votos en el bracket (#10).
+ *
+ * Solo cuenta la ronda ACTUAL de cada cruce (`match.vote_round`): en un
+ * desempate, la ronda vieja es historial, no lo que hoy decide.
+ *
+ * Los cruces sin votos visibles quedan FUERA del mapa — nunca como `0`.
+ * Eso no es estetica: RLS entrega filas solo donde el rol puede verlas
+ * (anon no lee match_votes mientras el cruce esta OPEN), asi que un `0`
+ * mentiria: seria "no puedo ver" disfrazado de "nadie voto". La
+ * ausencia es la informacion; el bracket no pinta nada y ya.
+ *
+ * Puro, sin RLS ni Supabase: recibe filas ya traidas. El owner trae
+ * todas (lee el cruce abierto); la pantalla de voto trae solo lo que
+ * RLS deja pasar (los resueltos), y con eso alcanza.
+ */
+export function matchTallies(
+  matches: readonly MatchRow[],
+  votes: readonly MatchVoteRow[],
+): Record<string, MatchTally> {
+  const tallies: Record<string, MatchTally> = {};
+
+  for (const match of matches) {
+    const currentRound = votes.filter(
+      (vote) =>
+        vote.match_id === match.id && vote.vote_round === match.vote_round,
+    );
+    const { a, b, total } = tallyMatch(currentRound, match);
+
+    if (total > 0) {
+      tallies[match.id] = { a, b, total };
+    }
+  }
+
+  return tallies;
+}
+
 /**
  * True when every active participant has a vote in `round`.
  * "Active" participants are decided by the caller (JOINED status) —

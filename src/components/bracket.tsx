@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Database } from "@/types/database.types";
+import type { MatchTally } from "@/lib/calculations/bracket";
 
 export type BracketMatch = Database["public"]["Tables"]["matches"]["Row"];
 export type BracketItem = Database["public"]["Tables"]["items"]["Row"];
@@ -9,6 +10,12 @@ type Props = {
   items: BracketItem[];
   /** Estado del mundialito: ajusta el copy del estado vacío. */
   status?: string;
+  /**
+   * Votos por cruce (#10). Solo trae los cruces con votos visibles
+   * (`matchTallies` deja afuera los demás): ausente = no pintar nada,
+   * nunca un 0 inventado.
+   */
+  tallies?: Record<string, MatchTally>;
 };
 
 /**
@@ -89,7 +96,12 @@ const roundLabel = (round: number, totalRounds: number): string => {
  * No deriva nada de la DB: recorre `matches` + `items` tal como vienen
  * de Supabase (el README manda "nunca persistir derivados").
  */
-export function Bracket({ matches, items, status }: Props) {
+export function Bracket({
+  matches,
+  items,
+  status,
+  tallies,
+}: Props) {
   if (!matches.length) {
     return (
       <p className="hint">
@@ -128,8 +140,9 @@ export function Bracket({ matches, items, status }: Props) {
   // La final no se reparte: es una sola y va al centro.
   const sideRounds = rounds.filter((round) => round < totalRounds);
 
-  const slotRow = (id: string | null, won: boolean) => {
+  const slotRow = (id: string | null, won: boolean, votes?: number) => {
     const name = itemName(id);
+    const votesLabel = votes === 1 ? "1 voto" : `${votes ?? 0} votos`;
     return (
       <div
         className={`flex min-h-5 items-center justify-between gap-2 text-xs sm:text-sm ${
@@ -139,9 +152,25 @@ export function Bracket({ matches, items, status }: Props) {
         <span className="min-w-0 truncate" title={name}>
           {name}
         </span>
-        {won ? (
-          <span className="flex-none" title="Ganador" aria-label="Ganador">
-            ✓
+        {/* El numero de votos va en la MISMA fila: el alto de la tarjeta
+            es fijo por construccion (de ahi salen los conectores de la
+            copa), y una fila nueva romperia toda la geometria. */}
+        {votes !== undefined || won ? (
+          <span className="flex flex-none items-center gap-1.5">
+            {votes !== undefined ? (
+              <span
+                className="tabular-nums"
+                title={votesLabel}
+                aria-label={votesLabel}
+              >
+                {votes}
+              </span>
+            ) : null}
+            {won ? (
+              <span title="Ganador" aria-label="Ganador">
+                ✓
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -151,6 +180,9 @@ export function Bracket({ matches, items, status }: Props) {
   const matchCard = (match: BracketMatch, isFinal = false) => {
     const isOpen = match.status === "OPEN";
     const winner = match.winner_item_id;
+    // Votos de la ronda vigente, si el caller los trajo (undefined =
+    // sin datos visibles: no se pinta nada, ver matchTallies).
+    const tally = tallies?.[match.id];
     // Toda tarjeta de ronda > 1 recibe a dos hijas. La final tambien,
     // pero degeneradas: las semis estan a la misma altura.
     const isLink = match.round > 1;
@@ -215,11 +247,19 @@ export function Bracket({ matches, items, status }: Props) {
             </span>
           ) : null}
 
-          {slotRow(match.item_a_id, winner !== null && winner === match.item_a_id)}
+          {slotRow(
+            match.item_a_id,
+            winner !== null && winner === match.item_a_id,
+            tally?.a,
+          )}
 
           <div className="divider my-1" />
 
-          {slotRow(match.item_b_id, winner !== null && winner === match.item_b_id)}
+          {slotRow(
+            match.item_b_id,
+            winner !== null && winner === match.item_b_id,
+            tally?.b,
+          )}
         </div>
       </div>
     );

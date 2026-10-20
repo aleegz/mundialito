@@ -14,6 +14,10 @@ type Props = {
   status: string;
   itemsCount: number;
   participantsCount: number;
+  /** Cuántos de los que pueden votar ya dejaron voto en el cruce OPEN. */
+  votedCount: number;
+  /** Cuántos pueden votar ahora (participants.status = 'JOINED'). */
+  eligibleCount: number;
   /** id del cruce OPEN (si existe): el owner debe finalizarlo. */
   openMatchId: string | null;
   /** true cuando quedan cruces PENDING con ambos slots (se puede avanzar). */
@@ -44,6 +48,8 @@ export function CrucesActions({
   status,
   itemsCount,
   participantsCount,
+  votedCount,
+  eligibleCount,
   openMatchId,
   hasPendingNext,
 }: Props) {
@@ -129,7 +135,9 @@ export function CrucesActions({
       return "Podés iniciar la votación o volver a sortear si no te gustó el orden.";
     }
     if (openMatchId !== null) {
-      return "Cuando voten todos los participantes activos, cerrá el cruce.";
+      return `Ya votaron ${votedCount} de ${eligibleCount} ${
+        eligibleCount === 1 ? "participante" : "participantes"
+      }. Cuando estén todos, cerrá el cruce.`;
     }
     if (hasPendingNext) {
       return "Ya podés abrir el siguiente cruce del bracket.";

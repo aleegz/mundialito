@@ -6,6 +6,7 @@ import {
   drawBracket,
   parentSlot,
   tallyMatch,
+  matchTallies,
   allActiveVoted,
   nextMatchToOpen,
   isChampion,
@@ -154,6 +155,41 @@ describe("tallyMatch", () => {
     const res = tallyMatch([vote("p1", "c")], baseMatch);
     expect(res.total).toBe(0);
     expect(res.winnerItemId).toBeNull();
+  });
+});
+
+describe("matchTallies", () => {
+  it("suma por contendiente en la ronda vigente del cruce", () => {
+    const res = matchTallies(
+      [baseMatch],
+      [vote("p1", "a"), vote("p2", "a"), vote("p3", "b")],
+    );
+    expect(res[baseMatch.id]).toEqual({ a: 2, b: 1, total: 3 });
+  });
+
+  it("omite el cruce sin votos en vez de inventar un 0", () => {
+    // Con RLS, anon no puede leer match_votes mientras el cruce esta
+    // OPEN: "sin filas" no es "nadie voto", y el mapa no puede
+    // distinguirlos. Ausente, no cero.
+    expect(matchTallies([baseMatch], [])).toEqual({});
+  });
+
+  it("ignora votos de una ronda de desempate anterior", () => {
+    const tieRound: MatchRow = { ...baseMatch, status: "OPEN", vote_round: 2 };
+    const res = matchTallies([tieRound], [
+      vote("p1", "a", 1),
+      vote("p2", "b", 2),
+    ]);
+    expect(res[tieRound.id]).toEqual({ a: 0, b: 1, total: 1 });
+  });
+
+  it("ignora votos de un cruce que no esta en la lista", () => {
+    const other: MatchRow = { ...baseMatch, id: "m2" };
+    expect(matchTallies([other], [vote("p1", "a")])).toEqual({});
+  });
+
+  it("mapa vacio sin cruces", () => {
+    expect(matchTallies([], [vote("p1", "a")])).toEqual({});
   });
 });
 

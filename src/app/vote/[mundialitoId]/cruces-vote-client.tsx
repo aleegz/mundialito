@@ -6,6 +6,8 @@ import { findOwnParticipant } from "@/lib/supabase/own-participant";
 import { isUuid } from "@/lib/validation/uuid";
 import type { Database } from "@/types/database.types";
 import { Bracket } from "@/components/bracket";
+import { useLiveRefresh } from "@/components/live-refresh";
+import { matchTallies, type MatchTally } from "@/lib/calculations/bracket";
 
 type Mundialito = Database["public"]["Tables"]["mundialitos"]["Row"];
 type Participant = Database["public"]["Tables"]["participants"]["Row"];
@@ -119,6 +121,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [me, setMe] = useState<Participant | null>(null);
   const [openMatch, setOpenMatch] = useState<Match | null>(null);
+  // Tally por cruce (#10): solo los cruces con votos visibles para ESTE
+  // rol. RLS entrega los resueltos; el OPEN no (secreto del voto).
+  const [tallies, setTallies] = useState<Record<string, MatchTally>>({});
+  // Avance del cruce OPEN (#9): un conteo de votantes, nunca elecciones.
+  const [voters, setVoters] = useState<{
+    voted: number;
+    eligible: number;
+  } | null>(null);
   // Eleccion local para el cruce abierto (A o B): itemId elegido.
   const [choice, setChoice] = useState<string | null>(null);
   const [savedRound, setSavedRound] = useState<number | null>(null);
@@ -206,8 +216,13 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         window.localStorage.removeItem(storageKey(mundialitoId));
       }
 
-      const [mResult, matchesResult, participantsResult, meResult] =
-        await Promise.all([
+      const [
+        mResult,
+        matchesResult,
+        participantsResult,
+        meResult,
+        votesResult,
+      ] = await Promise.all([
           supabase
             .from("mundialitos")
             .select("*")
@@ -232,6 +247,13 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
                 .eq("mundialito_id", mundialitoId)
                 .maybeSingle()
             : Promise.resolve({ data: null, error: null }),
+          // Votos (#10): RLS deja pasar solo los de cruces resueltos.
+          // Los del cruce OPEN no llegan (secreto del voto) y tampoco
+          // hacen falta: el tally se pinta con lo que se pueda ver.
+          supabase
+            .from("match_votes")
+            .select("*")
+            .eq("mundialito_id", mundialitoId),
         ]);
 
       if (
@@ -239,6 +261,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         matchesResult.error ||
         participantsResult.error ||
         meResult?.error ||
+        votesResult.error ||
         !mResult.data
       ) {
         return false;
@@ -277,9 +300,35 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         }
       }
 
+      const worldMatches = matchesResult.data ?? [];
+
+      // Tally del bracket (#10) con las filas que RLS dejo pasar.
+      setTallies(matchTallies(worldMatches, votesResult.data ?? []));
+
+      // Conteo de votantes (#9): solo con cruce OPEN. La RPC es SECURITY
+      // DEFINER (006) porque anon no lee match_votes mientras esta OPEN;
+      // devuelve un N, nunca elecciones. Elegibles = JOINED: los
+      // excluidos no votan. Si la RPC falla, no se muestra el numero
+      // (inventar un 0 mentiria).
+      const open = worldMatches.find((m) => m.status === "OPEN") ?? null;
+      const eligible =
+        (participantsResult.data ?? []).filter((p) => p.status === "JOINED")
+          .length;
+      if (open) {
+        const { data: voted, error: countError } = await supabase.rpc(
+          "match_voter_count",
+          { p_match_id: open.id, p_vote_round: open.vote_round },
+        );
+        setVoters(
+          countError ? null : { voted: voted ?? 0, eligible },
+        );
+      } else {
+        setVoters(null);
+      }
+
       applySnapshot({
         mundialito: mResult.data,
-        matches: matchesResult.data ?? [],
+        matches: worldMatches,
         participants: participantsResult.data ?? [],
         me: meRow,
       });
@@ -288,6 +337,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       refreshingRef.current = false;
     }
   }, [mundialitoId, applySnapshot]);
+
+  /**
+   * Realtime (#7): ademas del polling, un evento de las tablas del
+   * torneo dispara el refetch al toque (mismo refreshWorld, mismos
+   * guards: no pisa un voto en vuelo). Sin eventos — proyecto sin
+   * Realtime o canal caido — el polling de 5s sigue siendo el piso.
+   */
+  useLiveRefresh(mundialitoId, refreshWorld);
 
   // Carga inicial: validacion, items (una sola vez) y primer snapshot.
   useEffect(() => {
@@ -609,7 +666,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         </p>
 
         <div className="mt-6">
-          <Bracket
+          <Bracket tallies={tallies}
             matches={matches}
             items={items}
             status={mundialito?.status}
@@ -683,7 +740,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
         {matches.length > 0 && (
           <div className="mt-4">
-            <Bracket
+            <Bracket tallies={tallies}
               matches={matches}
               items={items}
               status={mundialito?.status}
@@ -710,7 +767,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
           {matches.length > 0 && (
             <div className="mt-6">
-              <Bracket
+              <Bracket tallies={tallies}
                 matches={matches}
                 items={items}
                 status={mundialito?.status}
@@ -738,6 +795,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             ? "Voto guardado. Esperá al resto: esta pantalla se actualiza sola."
             : "Elegí cuál de los dos pasa de ronda."}
         </p>
+
+        {/* Avance de la votacion (#9): el numero de votantes, nunca
+            quien voto ni que eligio — eso es el secreto del voto. */}
+        {voters && voters.eligible > 0 ? (
+          <p className="hint mt-1">
+            {voters.voted} de {voters.eligible} ya votaron.
+          </p>
+        ) : null}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {slotItems.map((itemId, index) => {
@@ -794,7 +859,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
           <div className="mt-8">
             <h2 className="h2">Bracket</h2>
             <div className="mt-3">
-              <Bracket
+              <Bracket tallies={tallies}
                 matches={matches}
                 items={items}
                 status={mundialito?.status}
@@ -817,7 +882,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       </p>
 
       <div className="mt-6">
-        <Bracket matches={matches} items={items} status={mundialito?.status} />
+        <Bracket tallies={tallies} matches={matches} items={items} status={mundialito?.status} />
       </div>
     </section>
   );

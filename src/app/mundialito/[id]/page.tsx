@@ -14,6 +14,8 @@ import { CrucesActions } from "./cruces-actions";
 import { Bracket } from "@/components/bracket";
 import { EditMundialitoForm } from "./edit-mundialito-form";
 import { ShareLinks } from "./share-links";
+import { LiveRefresh } from "@/components/live-refresh";
+import { matchTallies } from "@/lib/calculations/bracket";
 
 type Params = Promise<{ id: string }>;
 
@@ -73,6 +75,31 @@ export default async function MundialitoPage({ params }: { params: Params }) {
     (m) => m.status === "PENDING" && m.item_a_id && m.item_b_id,
   );
 
+  /**
+   * #7/#10/#9 — datos en vivo del cruce:
+   * - Los votos del torneo alimentan el tally del bracket. El owner lee
+   *   todo (match_votes_select_owner), asi que el cruce OPEN entra.
+   * - `matchTallies` deja afuera los cruces sin votos visibles y nunca
+   *   inventa un 0: para anon esa ausencia ES el secreto del voto.
+   * - El conteo de votantes sale de las mismas filas: el rol owner no
+   *   necesita la RPC de 006, que es para la pantalla de voto (anon).
+   */
+  const { data: matchVotes } = isCruces
+    ? await supabase
+        .from("match_votes")
+        .select("*")
+        .eq("mundialito_id", id)
+    : { data: null };
+  const tallies = matchTallies(matches ?? [], matchVotes ?? []);
+  const votedCount = openMatch
+    ? (matchVotes ?? []).filter(
+        (v) =>
+          v.match_id === openMatch.id && v.vote_round === openMatch.vote_round,
+      ).length
+    : 0;
+  const eligibleCount =
+    participants?.filter((p) => p.status === "JOINED").length ?? 0;
+
   const status = statusMeta(mundialito.status);
   const mode = modeMeta(mundialito.mode);
 
@@ -86,6 +113,12 @@ export default async function MundialitoPage({ params }: { params: Params }) {
       <AppHeader email={user.email} />
 
       <div className="page-wide">
+        {/* Refresco automatico (#7): Realtime empuja un refresh del
+            server component ante cualquier cambio del torneo. Sin
+            eventos (Realtime apagado o RLS que filtra), no pasa nada
+            raro: la pantalla de voto sigue con su polling de 5s. */}
+        <LiveRefresh mundialitoId={id} />
+
         <Link
           href="/"
           className="text-sm text-muted no-underline hover:text-fg"
@@ -150,6 +183,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
             status={mundialito.status}
             itemsCount={items?.length ?? 0}
             participantsCount={participants?.length ?? 0}
+            votedCount={votedCount}
+            eligibleCount={eligibleCount}
             openMatchId={openMatch?.id ?? null}
             hasPendingNext={hasPendingNext}
           />
@@ -189,6 +224,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
                 status={mundialito.status}
                 matches={matches ?? []}
                 items={items ?? []}
+                tallies={tallies}
               />
             </div>
           </section>
