@@ -83,7 +83,12 @@ Feedback del owner tras usar el MVP: (a) un sistema tipo mundial con **cruces** 
 
 ## Fase 6 — Higiene
 
-- [ ] **22.** Borrar directorios vacíos relicquia del "deshacer" del 6/10: `src/app/api/{invites,votes,mundialitos,participants/claim}`, `src/app/join/[token]`, `src/lib/calculations` (los que sigan vacíos al momento de tocar esta tarea). Nota (2026-10-14): `src/components` y `src/app/register` **ya no están vacíos** (los poblaron #33 y #2), así que salieron de la lista.
+- [x] **22.** Borrar directorios vacíos relicquia del "deshacer" del 6/10. — ✅ 2026-10-20.
+  - **Qué se borró**: `src/app/api/invites`, `src/app/api/participants/claim` y `src/app/join/[token]`. Al sacar `[token]` quedó `src/app/join` vacío un nivel arriba y también se fue: un barrido recursivo de `src` no encuentra **ningún** directorio vacío.
+  - **Qué NO se borró (ya no estaban vacíos)**: `src/app/api/votes` (1 archivo), `src/app/api/mundialitos` (1), `src/lib/calculations` (4), más `src/components` y `src/app/register` que se habían poblado en #33 y #2.
+  - **Sin referencias colgadas**: grep de `join/`, `/invites`, `invite` y `claim` en `src` solo encuentra `invite_token_hash` en `database.types.ts`, que es una columna de la base desde la Fase 2 y no tiene nada que ver con las rutas.
+  - **Ojo, esto no genera commit**: git no trackea directorios vacíos, así que el borrado es local y `git status` queda limpio. La única prueba es el filesystem.
+  - **Verificación**: `tsc` 0, `lint` 0, `vitest` 76/76.
 - [ ] **23.** Decidir destino de las páginas de prueba `/rls-test` y `/supabase-test` (sacarlas de producción o protegerlas).
 - [ ] **24.** Agregar `.env.example` con las variables referenciadas (sin valores).
 
@@ -147,7 +152,14 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
   - **Un solo clipboard**: el fallback `textarea` + `execCommand` que vivía dentro de `ShareLinks` se extrajo a `src/lib/ui/clipboard.ts` (`copyTextToClipboard`, devuelve `boolean`) y ahora lo usan los dos. Se eliminó la duplicación; `ShareLinks` además dejó de reportar "copiado" cuando el fallback falla.
   - **Alcance**: solo el owner en CRUCES FINISHED. En RANKING FINISHED el CTA "Ver los resultados" sigue (ahí sí lleva a contenido que el panel no muestra); para invitados tampoco cambia.
   - **Verificación**: `tsc` 0, `lint` 0, `vitest` **80/80** — sin tests nuevos: es interacción de UI y el helper toca `navigator`/`document` (no hay jsdom en el proyecto, ver #19 Playwright).
-- [ ] **40.** Ítems optimistas (surgido de #36): el ítem aparece cuando el server responde (~300 ms, `router.refresh()` dentro de una transición). Mostrarlo al instante exige mover la lista de ítems a un client component para tener una sola fuente de verdad optimista. No se hizo en #36 a propósito; decidir según cómo se sienta en el celular real.
+- [x] **40.** Ítems optimistas (surgido de #36). — ✅ 2026-10-20.
+  - **Qué cambió**: la sección de ítems completa (contador + lista + alta) pasó a un client component, `src/app/mundialito/[id]/items-section.tsx`. El ítem aparece **al toque**, con un pill "Guardando…" y sin botón Eliminar (todavía no tiene id), y se reemplaza por la fila real cuando entra la lista del server.
+  - **Por qué la sección entera y no solo el alta**: el contador del header (`items?.length`) era server-rendered. Si solo se movía el alta, la fila nueva aparecía pero el número quedaba congelado ~300 ms — exactamente el hallazgo #6 del Lote C. Ahora el contador es `items.length + pending.length` y se mueve con la fila.
+  - **La clave es la atomicidad, no el estado**: `POST /api/items` devuelve `{inserted, skipped}`, **no las filas**, así que no hay id real hasta el refresh. La fila optimista es efímera: se agrega fuera de transición (para que aparezca ya) y se quita **dentro de la misma transición** que el `router.refresh()` — el mismo mecanismo que el fix del Lote C usa para limpiar el input. Fila optimista y fila real se reemplazan en el mismo commit: sin parpadeo y sin duplicados.
+  - **Si falla, se deshace entero**: error HTTP, `inserted === 0` o excepción → la fila optimista se va, el texto tipeado sigue en el input (nunca se limpió) y el error se muestra abajo. Nunca queda una fila en pantalla que la base no tiene.
+  - **Carrera conocida y acotada**: si un refresh de Realtime llega justo entre el submit y la respuesta del POST, la fila real puede aparecer mientras la optimista sigue viva (duplicado visual de <300 ms). El hook debouncea 250 ms y la respuesta del POST suele ganar, así que en la práctica no se ve; resolverlo del todo exigiría que el API devuelva las filas creadas, y no valía el cambio de contrato por una ventana que no se percibe.
+  - **Payload mínimo**: `page.tsx` mapea los ítems a `{id, name, description}` antes de cruzar al cliente (`.select("*")` trae más columnas de las que la lista usa).
+  - **Verificación**: `tsc` 0, `lint` 0, `vitest` **76/76** — sin tests nuevos: es orquestación de estado/DOM y el proyecto no tiene jsdom; la lógica pura del alta (`splitItemInput`, `uniqueItems`, `addedItemsMessage`) ya estaba cubierta. La prueba real es en el celular (#21).
 
 ---
 

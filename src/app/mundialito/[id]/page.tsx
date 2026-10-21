@@ -7,8 +7,7 @@ import { modeMeta, statusMeta } from "@/lib/ui/labels";
 import { ParticipantsHint } from "./participants-hint";
 import { DeleteParticipantButton } from "./delete-participant-button";
 import { ToggleParticipantStatusButton } from "./toggle-participant-status-button";
-import { AddItemsForm } from "./items-form";
-import { DeleteItemButton } from "./delete-item-button";
+import { ItemsSection } from "./items-section";
 import { StatusActions } from "./status-actions";
 import { CrucesActions } from "./cruces-actions";
 import { Bracket } from "@/components/bracket";
@@ -312,45 +311,18 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           )}
         </section>
 
-        {/* Items */}
-        <section className="card card-pad mt-6" aria-label="Items">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="h3">Ítems</h2>
-            <span className="hint">{items?.length ?? 0}</span>
-          </div>
-
-          {items?.length || (isOwner && mundialito.status === "DRAFT") ? (
-            <ul className="mt-4 divide-y divide-line">
-              {items?.map((i) => (
-                <li
-                  key={i.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[0.9375rem] font-medium text-fg">
-                      {i.name}
-                    </span>
-                    {i.description ? (
-                      <span className="hint">{i.description}</span>
-                    ) : null}
-                  </span>
-
-                  {isOwner && mundialito.status === "DRAFT" ? (
-                    <DeleteItemButton itemId={i.id} name={i.name} />
-                  ) : null}
-                </li>
-              ))}
-
-              {/* El alta vive al final de la lista (patron "+ New"): cada
-                  item nuevo aparece arriba, en su lugar definitivo. */}
-              {isOwner && mundialito.status === "DRAFT" ? (
-                <AddItemsForm mundialitoId={id} />
-              ) : null}
-            </ul>
-          ) : (
-            <p className="hint mt-4">Todavía no hay ítems.</p>
-          )}
-        </section>
+        {/* Items: el contador, la lista y el alta viven juntos en el
+            cliente para que la fila optimista y el numero se muevan
+            juntos (#40). */}
+        <ItemsSection
+          mundialitoId={id}
+          items={(items ?? []).map(({ id: itemId, name, description }) => ({
+            id: itemId,
+            name,
+            description,
+          }))}
+          canEdit={isOwner && mundialito.status === "DRAFT"}
+        />
       </div>
     </main>
   );

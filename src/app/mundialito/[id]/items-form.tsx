@@ -17,6 +17,19 @@ import {
 
 type Props = {
   mundialitoId: string;
+  /**
+   * Filas optimistas: el padre las pinta arriba del form mientras viaja
+   * el POST. Se llama desde el evento, fuera de transicion, para que la
+   * fila aparezca al toque.
+   */
+  onPending: (names: string[]) => void;
+  /**
+   * El server ya respondio: las filas optimistas se van. En el exito va
+   * DENTRO de la misma transicion que el `router.refresh()`, asi la fila
+   * real y la optimista se reemplazan en el mismo commit (sin parpadeo y
+   * sin duplicarse).
+   */
+  onSettled: () => void;
 };
 
 /**
@@ -39,7 +52,11 @@ type Props = {
  * El POST es el de siempre — `/api/items` con `{names: [nombre]}` — un
  * lote de uno. Cero endpoints nuevos, cero migraciones.
  */
-export function AddItemsForm({ mundialitoId }: Props) {
+export function AddItemsForm({
+  mundialitoId,
+  onPending,
+  onSettled,
+}: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -69,6 +86,13 @@ export function AddItemsForm({ mundialitoId }: Props) {
     setError(null);
     setNote(null);
 
+    /**
+     * La fila optimista aparece ahora, no cuando vuelve el POST: el
+     * usuario ve en la lista lo mismo que acaba de escribir. El server
+     * sigue siendo la verdad — esto se deshace entero si falla.
+     */
+    onPending(names);
+
     const response = await fetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,8 +103,10 @@ export function AddItemsForm({ mundialitoId }: Props) {
     setPending(false);
 
     // El input nunca se limpio, asi que no hay nada que devolver si algo
-    // falla: el texto sigue ahi esperando otro intento.
+    // falla: el texto sigue ahi esperando otro intento. La fila optimista
+    // si se va: no se guardo nada.
     if (!response.ok) {
+      onSettled();
       setError(data?.error ?? "No se pudieron agregar los ítems.");
       return;
     }
@@ -89,6 +115,7 @@ export function AddItemsForm({ mundialitoId }: Props) {
       typeof data?.inserted === "number" ? data.inserted : names.length;
 
     if (inserted === 0) {
+      onSettled();
       setError("No se pudo agregar el ítem.");
       return;
     }
@@ -114,6 +141,9 @@ export function AddItemsForm({ mundialitoId }: Props) {
         setText((current) => (current === submitted ? "" : current));
       }
 
+      // La fila optimista y la real se reemplazan en el mismo commit: la
+      // optimista se va cuando la lista del server ya esta aca.
+      onSettled();
       router.refresh();
     });
   }
