@@ -13,6 +13,14 @@
 # testing
 /coverage
 
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+# Sesion guardada del usuario de test: son cookies validas, no van al repo.
+/.auth/
+
 # next.js
 /.next/
 /out/
