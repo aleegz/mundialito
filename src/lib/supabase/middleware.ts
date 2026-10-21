@@ -52,7 +52,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rutas que requieren sesion
-  const protectedRoutes = ["/rls-test", "/mundialito"];
+  const protectedRoutes = ["/mundialito"];
 
   const isProtected = protectedRoutes.some((route) =>
     pathname.startsWith(route),

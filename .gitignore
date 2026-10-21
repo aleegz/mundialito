@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template: sin esta excepcion .env.example nace ignorado y
+# no llega nunca al repo (el patron .env* lo tapa).
+!.env.example
 
 # local env files
 .env*.local

@@ -89,8 +89,15 @@ Feedback del owner tras usar el MVP: (a) un sistema tipo mundial con **cruces** 
   - **Sin referencias colgadas**: grep de `join/`, `/invites`, `invite` y `claim` en `src` solo encuentra `invite_token_hash` en `database.types.ts`, que es una columna de la base desde la Fase 2 y no tiene nada que ver con las rutas.
   - **Ojo, esto no genera commit**: git no trackea directorios vacíos, así que el borrado es local y `git status` queda limpio. La única prueba es el filesystem.
   - **Verificación**: `tsc` 0, `lint` 0, `vitest` 76/76.
-- [ ] **23.** Decidir destino de las páginas de prueba `/rls-test` y `/supabase-test` (sacarlas de producción o protegerlas).
-- [ ] **24.** Agregar `.env.example` con las variables referenciadas (sin valores).
+- [x] **23.** Destino de las páginas de prueba `/rls-test` y `/supabase-test`: **se borraron**. — ✅ 2026-10-21.
+  - **`/rls-test` no era "una página de prueba": era una escritura en cada GET.** La inserción vivía en una Server Action (`createTestMundialito`) que se ejecutaba **durante el render**, así que cualquier usuario logueado que entrara generaba un mundialito de basura por visita. Eso no se protege: se elimina.
+  - **`/supabase-test`** solo leía la sesión con `getSession()` y mostraba el estado de conexión. Cero valor en la app.
+  - **Se limpiaron las referencias**: `protectedRoutes` del middleware (`src/lib/supabase/middleware.ts`) quedó en `["/mundialito"]`, y el comentario de `src/app/vote/[mundialitoId]/page.tsx` dejó de nombrar `/rls-test`. Grep de `rls-test|supabase-test` en `src`: cero matches.
+  - **Verificación**: `tsc` 0, `lint` 0, `vitest` 76/76.
+- [x] **24.** `.env.example` con las variables referenciadas. — ✅ 2026-10-21.
+  - **Son solo dos, y las dos son públicas**: `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`src/lib/supabase/{server,client,middleware}.ts`; no hay más `process.env` en el repo, ni siquiera en `next.config.ts`). El archivo documenta que la service role key **no** va ahí: se salta RLS y `NEXT_PUBLIC_` viaja al browser.
+  - **Trampa que casi lo deja inútil**: `.gitignore` tenía `.env*`, así que el template nacía ignorado. Se agregó `!.env.example` después del patrón y se verificó que `git status` lo ve (`??`) en vez de taparlo.
+  - Sin cambios de código: `tsc` 0, `lint` 0, `vitest` 76/76.
 
 ## Fase 7 — Rediseño de UI/UX
 

@@ -10,7 +10,7 @@ type Params = Promise<{ mundialitoId: string }>;
 
 /**
  * Superficie del votante (link abierto, Opcion A). El proxy no
- * protege /vote: solo /mundialito y /rls-test requieren sesion.
+ * protege /vote: solo /mundialito requiere sesion.
  * Toda la carga de datos pasa por el browser client anonimo.
  * El enrutador por modo (VoteModeSwitch) elige la superficie:
  * RANKING usa VoteClient; CRUCES usa CrucesVoteClient.
