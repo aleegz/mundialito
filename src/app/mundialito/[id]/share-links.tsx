@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import QRCode from "qrcode";
+import { copyTextToClipboard } from "@/lib/ui/clipboard";
 
 type Props = {
   mundialitoId: string;
@@ -65,29 +66,17 @@ export function ShareLinks({ mundialitoId }: Props) {
   async function handleCopy() {
     if (!url) return;
 
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } else {
-        // Fallback for non-secure contexts
-        const textArea = document.createElement("textarea");
-        textArea.value = url;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        textArea.remove();
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
+    // Mismo helper que el CTA de cierre (#12): el fallback para
+    // contextos no seguros (celular por IP local) vive en un solo lugar.
+    const ok = await copyTextToClipboard(url);
+
+    if (!ok) {
       setQrError("No se pudo copiar el enlace.");
+      return;
     }
+
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   if (!url) {

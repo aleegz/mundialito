@@ -14,6 +14,7 @@ import { CrucesActions } from "./cruces-actions";
 import { Bracket } from "@/components/bracket";
 import { EditMundialitoForm } from "./edit-mundialito-form";
 import { ShareLinks } from "./share-links";
+import { CopyShareCta } from "./copy-share-cta";
 import { LiveRefresh } from "@/components/live-refresh";
 import { matchTallies } from "@/lib/calculations/bracket";
 
@@ -108,6 +109,14 @@ export default async function MundialitoPage({ params }: { params: Params }) {
     mundialito.status === "ACTIVE" || mundialito.status === "FINISHED";
   const canVoteCruces = isCruces && mundialito.status === "VOTING";
 
+  /**
+   * #12: con la copa terminada, el CTA del owner deja de ser "Ver los
+   * resultados" —ese link lleva al mismo bracket que ya esta abajo en el
+   * panel— y pasa a ser compartir el link. Ocupa el mismo lugar.
+   */
+  const finishedCrucesOwner =
+    isOwner && isCruces && mundialito.status === "FINISHED";
+
   return (
     <main className="flex-1 pb-16">
       <AppHeader email={user.email} />
@@ -147,8 +156,11 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           </div>
         </header>
 
-        {/* Proximo paso: votar / ver resultados */}
-        {canVote || canVoteCruces ? (
+        {/* Proximo paso: votar / ver resultados. Si el owner ya cerro la
+            copa, el paso es compartirla (#12). */}
+        {finishedCrucesOwner ? (
+          <CopyShareCta mundialitoId={id} />
+        ) : canVote || canVoteCruces ? (
           <Link
             href={`/vote/${id}`}
             className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
