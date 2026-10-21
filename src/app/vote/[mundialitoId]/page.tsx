@@ -51,21 +51,27 @@ export default async function VotePage({ params }: { params: Params }) {
 /**
  * true solo si quien abre la pagina es el owner del mundialito.
  *
- * getSession() lee la cookie y no toca la red cuando no hay sesion,
- * asi que el votante anonimo del QR no paga nada. La lectura de
- * mundialitos queda filtrada por RLS (el que no es owner ni
- * participante no ve el DRAFT), y la decision es de presentacion:
- * ningun dato de la pantalla depende de esto.
+ * `getUser()` y no `getSession()`: en el SERVIDOR la sesion sale de una
+ * cookie, y `getSession()` devuelve el objeto user tal cual viene de ahi,
+ * sin verificar la firma. Supabase lo marca como inseguro para autorizar
+ * (visto como warning en la consola durante los tests E2E). `getUser()`
+ * valida el JWT contra Supabase Auth.
+ *
+ * El costo es una llamada a Auth por visita CON sesion (el owner); el
+ * votante anonimo del QR no paga nada: sin cookie no hay round-trip.
+ * Sigue siendo una decision de PRESENTACION —ningun dato de la pantalla
+ * depende de esto y RLS filtra igual—: si el round-trip molesta, el paso
+ * siguiente es resolver el link en el cliente, no volver a getSession().
  */
 async function isOwnerViewing(mundialitoId: string): Promise<boolean> {
   if (!isUuid(mundialitoId)) return false;
 
   const supabase = await createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) return false;
+  if (!user) return false;
 
   const { data } = await supabase
     .from("mundialitos")
@@ -73,5 +79,5 @@ async function isOwnerViewing(mundialitoId: string): Promise<boolean> {
     .eq("id", mundialitoId)
     .maybeSingle();
 
-  return data?.owner_id === session.user.id;
+  return data?.owner_id === user.id;
 }

@@ -34,6 +34,19 @@ const LIVE_TABLES = [
  * no tiene Realtime habilitado o el canal se cae, no llega ningun evento
  * y el polling de 5s sigue siendo el piso de seguridad. Sin error
  * visible y sin estado de conexion: degradar en silencio es el contrato.
+ *
+ * OBSERVACION SIN DIAGNOSTICAR (2026-10-21): en una corrida de los tests
+ * E2E (`npm run test:e2e`), el dev server tiro
+ * "⨯ Error: The destination stream closed early." (digest 3716455602) al
+ * final. El test PASO igual. En 3 corridas posteriores (incluida una con
+ * `--repeat-each=2`) NO volvio a aparecer, asi que no esta reproducido y
+ * NO hay fix: no se toca nada a ciegas sobre esto.
+ *
+ * Es el sospechoso natural por ser quien mantiene un canal vivo y dispara
+ * `router.refresh()` mientras el test navega entre rutas. Si reaparece,
+ * el dato que falta es el output COMPLETO de esa corrida: si el error
+ * sale despues del "N passed" apunta a teardown del server (inofensivo);
+ * si sale durante un refresh, hay un stream RSC que queda abierto.
  */
 export function useLiveRefresh(
   mundialitoId: string,
