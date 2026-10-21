@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un push nuevo cancela la corrida vieja del mismo ref: no tiene sentido
+# gastar minutos validando un commit que ya quedo atras.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` y no `npm install`: falla si package-lock.json no coincide
+      # con package.json, que es justo lo que queremos en CI.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # El proyecto no tiene script de typecheck separado: `tsc --noEmit`
+      # es el gate (mismo comando que se corre a mano).
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test:run
+
+      # El build SI necesita las variables: Next las inlinea en el bundle
+      # y `createClient` las lee con `!`. En CI vienen de los secrets del
+      # repo (Settings -> Secrets -> Actions). Son las mismas publicas que
+      # en local; ninguna service role.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+  # Los E2E NO corren aca a proposito.
+  #
+  # El flujo de `e2e/full-flow.spec.ts` escribe datos REALES: crea un
+  # mundialito, items, un participante y los votos. Si esto corriera en
+  # cada push, la base de produccion se llenaria de torneos "[E2E]" y no
+  # habria forma de limpiarlos desde el workflow (no tiene la service role
+  # key, y no deberia tenerla).
+  #
+  # Para habilitarlos hacen falta dos cosas que todavia no existen:
+  #   1. Un usuario de test y un proyecto de Supabase APARTE (o un
+  #      Supabase local con `supabase start`).
+  #   2. Los secrets E2E_EMAIL / E2E_PASSWORD.
+  #
+  # Cuando eso exista, este job es copiar el de arriba y agregar
+  # `npx playwright install --with-deps chromium` + `npm run test:e2e`.
