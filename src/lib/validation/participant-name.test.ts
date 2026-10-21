@@ -4,7 +4,6 @@ import {
   MAX_PARTICIPANT_NAME_LENGTH,
   ownerDisplayName,
   validateParticipantName,
-  cleanParticipantNames,
 } from "@/lib/validation/participant-name";
 
 describe("validateParticipantName", () => {
@@ -66,27 +65,6 @@ describe("validateParticipantName", () => {
       ok: true,
       value: "a".repeat(MAX_PARTICIPANT_NAME_LENGTH),
     });
-  });
-});
-
-describe("cleanParticipantNames", () => {
-  it("lista vacía → lista vacía", () => {
-    expect(cleanParticipantNames([])).toEqual([]);
-  });
-
-  it("hace trim y descarta vacíos", () => {
-    expect(cleanParticipantNames([" Ana ", "", "  ", "Beto"])).toEqual([
-      "Ana",
-      "Beto",
-    ]);
-  });
-
-  it("conserva duplicados a propósito (dos Juan = dos participantes)", () => {
-    expect(cleanParticipantNames(["Juan", "Juan"])).toEqual(["Juan", "Juan"]);
-  });
-
-  it("conserva el orden de entrada", () => {
-    expect(cleanParticipantNames(["c", "a", "b"])).toEqual(["c", "a", "b"]);
   });
 });
 

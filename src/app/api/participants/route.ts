@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/uuid";
-import {
-  cleanParticipantNames,
-  validateParticipantName,
-} from "@/lib/validation/participant-name";
+import { validateParticipantName } from "@/lib/validation/participant-name";
 
 type RequestBody = {
   mundialitoId?: unknown;
-  names?: unknown;
   name?: unknown;
 };
 
 /**
- * Dos caminos en el mismo endpoint:
+ * Auto-registro (name: string): link abierto, sin sesion. El server
+ * crea la fila y devuelve el participantId que el cliente guarda en
+ * localStorage (identidad del votante).
  *
- *  - Roster (names[]): owner en DRAFT, alta masiva. El contrato
- *    existente no cambia.
- *  - Auto-registro (name: string): link abierto, mundialito ACTIVE,
- *    sin sesion. El server crea la fila y devuelve el participantId
- *    que el cliente guarda en localStorage (identidad del votante).
+ * El roster masivo (names[]) que vivia aca quedo sin caller cuando #4
+ * saco el alta manual de participantes; se termino de borrar en #39.
  *
  * El server (y no el browser) muta Supabase: mismo criterio que el
  * resto de las API routes.
@@ -63,7 +58,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cuerpo invalido." }, { status: 400 });
   }
 
-  const { mundialitoId, names, name } = body;
+  const { mundialitoId, name } = body;
 
   if (typeof mundialitoId !== "string" || !mundialitoId) {
     return NextResponse.json(
@@ -84,7 +79,7 @@ export async function POST(request: Request) {
   // Nombres duplicados aceptados a proposito: dos "Juan" son dos
   // participantes distintos y cada uno vota lo suyo.
   // ---------------------------------------------------------------
-  if (names === undefined && name !== undefined) {
+  if (name !== undefined) {
     const validated = validateParticipantName(name);
 
     if (!validated.ok) {
@@ -185,99 +180,8 @@ export async function POST(request: Request) {
     });
   }
 
-  // ---------------------------------------------------------------
-  // Roster masivo (contrato existente): solo owner en DRAFT.
-  // ---------------------------------------------------------------
-  if (
-    !Array.isArray(names) ||
-    names.length === 0 ||
-    !names.every((n): n is string => typeof n === "string")
-  ) {
-    return NextResponse.json(
-      { error: "La lista de nombres es invalida." },
-      { status: 400 },
-    );
-  }
-
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
-
-  /**
-   * El roster es una operacion de estructura (DRAFT). RLS lo cubre
-   * via participants_insert de 002, pero el auto-registro comparte
-   * la misma policy de INSERT en ACTIVE (el DB no distingue "masivo"
-   * de "individual"), asi que el contrato DRAFT-only se asegura
-   * aca, con un error claro en vez de "inserted: 0".
-   */
-  const { data: mundialito, error: statusError } = await supabase
-    .from("mundialitos")
-    .select("status")
-    .eq("id", mundialitoId)
-    .maybeSingle();
-
-  if (statusError) {
-    return NextResponse.json(
-      { error: "No se pudo validar la lista." },
-      { status: 400 },
-    );
-  }
-
-  if (!mundialito) {
-    return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  }
-
-  if (mundialito.status !== "DRAFT") {
-    return NextResponse.json(
-      {
-        error:
-          "La lista de participantes solo se puede modificar mientras el Mundialito está en DRAFT.",
-      },
-      { status: 409 },
-    );
-  }
-
-  const cleanNames = cleanParticipantNames(names);
-
-  if (cleanNames.length === 0) {
-    return NextResponse.json(
-      { error: "No hay nombres validos." },
-      { status: 400 },
-    );
-  }
-
-  /**
-   * INSERT ... RETURNING filtra los que RLS rechazo.
-   *
-   * No es un chequeo de seguridad: RLS ya bloqueo lo que no podia insertar.
-   * Solo_evitamos informa al usuario de cuantos se agregaron.
-   */
-  const { data, error } = await supabase
-    .from("participants")
-    .insert(
-      cleanNames.map((display_name) => ({
-        mundialito_id: mundialitoId,
-        display_name,
-        auth_user_id: null,
-      })),
-    )
-    .select("id, display_name");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  const inserted = data?.length ?? 0;
-
-  return NextResponse.json({
-    inserted,
-    skipped: cleanNames.length - inserted,
-  });
+  // Sin `name` no hay nada que registrar: el roster masivo (names[]) se
+  // fue con el alta manual de participantes (#4) y se termino de borrar
+  // aca (#39). 400 explicito en vez de caer en una rama muerta.
+  return NextResponse.json({ error: "Falta el nombre." }, { status: 400 });
 }

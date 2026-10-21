@@ -1,7 +1,7 @@
 /**
  * Validación pura del nombre de un participante (auto-registro del
- * link abierto y roster del owner). Vive acá —y no inline en la API
- * route— para poder testearla sin levantar Next ni Supabase.
+ * link abierto). Vive acá —y no inline en la API route— para poder
+ * testearla sin levantar Next ni Supabase.
  */
 
 /** Largo máximo de un nombre. Un solo lugar para el número. */
@@ -32,15 +32,6 @@ export function validateParticipantName(raw: unknown): NameValidation {
   }
 
   return { ok: true, value };
-}
-
-/**
- * Normaliza una lista de nombres (roster del owner): `trim` a cada
- * uno y descarta los vacíos. Duplicados se conservan a propósito
- * (dos "Juan" son dos participantes distintos).
- */
-export function cleanParticipantNames(names: readonly string[]): string[] {
-  return names.map((name) => name.trim()).filter(Boolean);
 }
 
 /**
