@@ -57,6 +57,32 @@ export function statusMeta(status: string | null | undefined): Meta {
   return { label: status ?? "Sin estado", pill: "pill-neutral" };
 }
 
+/**
+ * true solo mientras el LINK DE INVITACION sirve de verdad: quien lo
+ * abra puede entrar y sumarse. Es la unica razon por la que tiene
+ * sentido mostrar el QR / link para compartir.
+ *
+ * RANKING: solo en ACTIVE. En DRAFT el torneo no es visible para el
+ *   anonimo (RLS esconde el DRAFT), asi que el link da "No encontramos
+ *   este torneo": compartirlo es una trampa (reporte del 21/10 — el
+ *   owner invitaba y del otro lado no abria nada).
+ * CRUCES: solo en PARTICIPANTS_OPEN, por el mismo motivo (antes del
+ *   sorteo y despues del cierre nadie se suma).
+ *
+ * Vive aca y no en la pagina porque enumerar estados a mano es lo que
+ * rompe: el dashboard listaba PARTICIPANTS_LOCKED/DRAWN/VOTING y mostraba
+ * "compartí el link para que se unan" cuando ya no se podia sumar nadie
+ * (mismo patron que el globo vacio del Lote A). Con una sola fuente de
+ * verdad, un estado nuevo entra o no entra en UN lugar, no en dos.
+ */
+export function isRegistrationOpen(
+  status: string | null | undefined,
+  mode: string | null | undefined,
+): boolean {
+  if (mode === "CRUCES") return status === "PARTICIPANTS_OPEN";
+  return status === "ACTIVE";
+}
+
 /** Descripcion corta de cada modo, para la pantalla de creacion. */
 export const MODE_DESCRIPTION: Record<MundialitoMode, string> = {
   RANKING:

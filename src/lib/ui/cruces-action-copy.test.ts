@@ -40,7 +40,7 @@ describe("confirmTextFor", () => {
   it("abrir la inscripción avisa que no se editan más los ítems", () => {
     const text = confirmTextFor({ kind: "patch", target: "PARTICIPANTS_OPEN" });
 
-    expect(text).toContain("Abrir la inscripción");
+    expect(text).toContain("Iniciar el torneo");
     expect(text).toContain("ítems");
   });
 
@@ -72,7 +72,7 @@ describe("actionLabelFor", () => {
   it("nombra la apertura y el cierre de la inscripción", () => {
     expect(
       actionLabelFor({ kind: "patch", target: "PARTICIPANTS_OPEN" }, "DRAFT"),
-    ).toBe("Abrir inscripción");
+    ).toBe("Iniciar torneo");
     expect(
       actionLabelFor(
         { kind: "patch", target: "PARTICIPANTS_LOCKED" },

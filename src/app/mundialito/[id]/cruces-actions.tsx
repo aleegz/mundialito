@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { isValidBracketSize } from "@/lib/calculations/bracket";
 import {
@@ -54,6 +54,16 @@ export function CrucesActions({
   hasPendingNext,
 }: Props) {
   const router = useRouter();
+  /**
+   * El "Cargando" tiene que durar hasta que la PANTALLA se actualice, no
+   * hasta que vuelve el fetch (bug del 21/10): antes se limpiaba `pending`
+   * al volver la respuesta y el `router.refresh()` recien arrancaba, asi
+   * que el owner veia el cruce viejo ~2s mientras los otros dispositivos
+   * ya tenian el finalizado por Realtime. Mismo patron que el alta de
+   * items (#40): el refresh va DENTRO de la transicion y el boton sigue
+   * en "Un momento…" hasta que el server component trae los datos.
+   */
+  const [isRefreshing, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [confirm, setConfirm] = useState<CrucesAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -205,11 +215,18 @@ export function CrucesActions({
         }
       }
 
-      setPending(false);
-      setConfirm(null);
-
       if (ok) {
-        router.refresh();
+        // El refresh va DENTRO de la transicion: `isRefreshing` sigue
+        // true hasta que el server component re-renderiza con los datos
+        // nuevos. Recien ahi se libera el boton (junto con `pending`).
+        startTransition(() => {
+          setPending(false);
+          setConfirm(null);
+          router.refresh();
+        });
+      } else {
+        setPending(false);
+        setConfirm(null);
       }
     } catch {
       setError("No se pudo completar la acción.");
@@ -269,10 +286,10 @@ export function CrucesActions({
           <button
             type="button"
             onClick={() => run(confirm)}
-            disabled={pending}
+            disabled={pending || isRefreshing}
             className="btn btn-primary"
           >
-            {pending ? "Un momento…" : "Sí, confirmar"}
+            {pending || isRefreshing ? "Un momento…" : "Sí, confirmar"}
           </button>
           <button
             type="button"
@@ -280,7 +297,7 @@ export function CrucesActions({
               setError(null);
               setConfirm(null);
             }}
-            disabled={pending}
+            disabled={pending || isRefreshing}
             className="btn btn-ghost"
           >
             Cancelar

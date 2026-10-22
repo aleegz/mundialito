@@ -286,11 +286,20 @@
 
   /* Badge de estado de un cruce. Va posicionado ABSOLUTO sobre el borde
      superior para no alterar la altura de la tarjeta: la geometria del
-     bracket depende de que todas las tarjetas midan exactamente igual. */
+     bracket depende de que todas las tarjetas midan exactamente igual.
+
+     CONTENCION (bug del 21/10): con la tarjeta en su ancho minimo
+     (6.5rem) el texto "En votación" se salia del borde izquierdo — el
+     badge no tenia max-width ni overflow. Ahora se acota al ancho de la
+     tarjeta y recorta con ellipsis: el copy corto ("En vivo") ya casi no
+     lo necesita, pero el ancho es del contenedor, no del texto. */
   .bracket-badge {
     position: absolute;
     top: -0.4375rem;
     right: 0.5rem;
+    max-width: calc(100% - 1rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
     border-radius: 9999px;
     border: 1px solid var(--surface);
     background-color: var(--brand-soft);

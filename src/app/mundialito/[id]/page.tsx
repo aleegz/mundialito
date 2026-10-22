@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
-import { modeMeta, statusMeta } from "@/lib/ui/labels";
+import { modeMeta, statusMeta, isRegistrationOpen } from "@/lib/ui/labels";
 import { ParticipantsHint } from "./participants-hint";
 import { DeleteParticipantButton } from "./delete-participant-button";
 import { ToggleParticipantStatusButton } from "./toggle-participant-status-button";
@@ -215,15 +215,29 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           />
         ) : null}
 
-        {/* Compartir */}
-        {isOwner &&
-        (mundialito.status === "ACTIVE" ||
-          (isCruces &&
-            (mundialito.status === "PARTICIPANTS_OPEN" ||
-              mundialito.status === "PARTICIPANTS_LOCKED" ||
-              mundialito.status === "DRAWN" ||
-              mundialito.status === "VOTING"))) ? (
+        {/* Compartir: SOLO mientras el link sirve de verdad (ver
+            isRegistrationOpen). El link invita a sumarse, asi que
+            mostrarlo cuando el anonimo todavia no puede entrar (DRAFT)
+            o cuando ya no se suma nadie es ofrecer algo que no funciona
+            (bug reportado en la prueba del 21/10). */}
+        {isOwner && isRegistrationOpen(mundialito.status, mundialito.mode) ? (
           <ShareLinks mundialitoId={id} />
+        ) : null}
+
+        {/* En DRAFT no hay link que compartir, pero el owner igual quiere
+            organizarse: se le dice POR QUE no esta y que hacer. Sin esto
+            quedaba sin QR y sin explicacion. */}
+        {isOwner &&
+        mundialito.status === "DRAFT" &&
+        (!isCruces || items?.length) ? (
+          <section className="card card-pad mt-6" aria-label="Compartir">
+            <h2 className="h3">Invitar a los participantes</h2>
+            <p className="hint mt-1">
+              {isCruces
+                ? "Iniciá el torneo para abrir la inscripción. Cuando esté abierta, vas a poder compartir el link y el QR desde acá."
+                : "Iniciá el torneo para que el link funcione. Cuando esté iniciado, vas a poder compartir el link y el QR desde acá."}
+            </p>
+          </section>
         ) : null}
 
         {/* Bracket (aparece a partir del sorteo) */}
