@@ -235,7 +235,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
             <p className="hint mt-1">
               {isCruces
                 ? "Iniciá el torneo para abrir la inscripción. Cuando esté abierta, vas a poder compartir el link y el QR desde acá."
-                : "Iniciá el torneo para que el link funcione. Cuando esté iniciado, vas a poder compartir el link y el QR desde acá."}
+                : "Iniciá el torneo para añadir participantes. Cuando esté iniciado, vas a poder compartir el link y el QR desde acá."}
             </p>
           </section>
         ) : null}
