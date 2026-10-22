@@ -11,18 +11,26 @@ type Props = {
 type Target = "ACTIVE" | "FINISHED";
 
 const LABELS: Record<Target, string> = {
-  ACTIVE: "Iniciar votación",
+  ACTIVE: "Iniciar torneo",
   FINISHED: "Finalizar votación",
 };
 
+/**
+ * "Iniciar torneo" y no "Iniciar votación": en RANKING ese unico click
+ * hace DOS cosas — cierra la inscripcion (desde ahi no se suma nadie
+ * mas ni funciona el link) y abre la votacion. Nombrar solo la segunda
+ * le escondia al owner la mitad que le importa cuando quiere invitar
+ * gente (reporte del 21/10).
+ */
 const HINT: Record<Target, string> = {
-  ACTIVE: "Al abrirla, no se podrá volver a editar la estructura del torneo.",
+  ACTIVE:
+    "Cierra la inscripción y abre la votación. Después no se podrá sumar nadie más ni editar la estructura.",
   FINISHED: "Se cierran los votos y se publican los resultados.",
 };
 
 const CONSEQUENCE: Record<Target, string> = {
   ACTIVE:
-    "¿Iniciar la votación? No vas a poder volver a editar la estructura.",
+    "¿Iniciar el torneo? Se cierra la inscripción y no vas a poder volver a editar la estructura.",
   FINISHED: "¿Finalizar la votación? Se van a cerrar los votos.",
 };
 

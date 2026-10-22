@@ -21,10 +21,7 @@ export function ParticipantsHint({ status, mode, ownerJoined }: Props) {
     return (
       <p className="hint">
         {ownerJoined ? "Ya estás anotado vos." : "Todavía no estás anotado."}{" "}
-        El resto se suma con su nombre desde el link{" "}
-        {mode === "CRUCES"
-          ? "cuando abras la inscripción."
-          : "cuando inicies la votación."}
+        El resto se suma con su nombre desde el link cuando inicies el torneo.
       </p>
     );
   }

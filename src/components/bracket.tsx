@@ -241,9 +241,7 @@ export function Bracket({
 
           {isOpen ? (
             <span className="bracket-badge">
-              {match.vote_round > 1
-                ? `Desempate ${match.vote_round}`
-                : "En votación"}
+              {match.vote_round > 1 ? `Desempate ${match.vote_round}` : "En vivo"}
             </span>
           ) : null}
 

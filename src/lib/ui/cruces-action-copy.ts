@@ -32,7 +32,7 @@ const CONFIRM_TEXT: Record<Exclude<CrucesAction["kind"], "patch">, string> = {
 export function confirmTextFor(action: CrucesAction): string {
   if (action.kind === "patch") {
     return action.target === "PARTICIPANTS_OPEN"
-      ? "¿Abrir la inscripción? Después no se podrán editar los ítems."
+      ? "¿Iniciar el torneo? Se abre la inscripción para que la gente se sume desde el link. Después no se podrán editar los ítems."
       : "¿Cerrar la inscripción? Después no se puede sumar nadie más.";
   }
 
@@ -58,7 +58,7 @@ const ACTION_LABEL: Record<
 export function actionLabelFor(action: CrucesAction, status: string): string {
   if (action.kind === "patch") {
     return action.target === "PARTICIPANTS_OPEN"
-      ? "Abrir inscripción"
+      ? "Iniciar torneo"
       : "Cerrar inscripción";
   }
 
