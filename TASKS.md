@@ -177,6 +177,27 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
   - **Payload mínimo**: `page.tsx` mapea los ítems a `{id, name, description}` antes de cruzar al cliente (`.select("*")` trae más columnas de las que la lista usa).
   - **Verificación**: `tsc` 0, `lint` 0, `vitest` **76/76** — sin tests nuevos: es orquestación de estado/DOM y el proyecto no tiene jsdom; la lógica pura del alta (`splitItemInput`, `uniqueItems`, `addedItemsMessage`) ya estaba cubierta. La prueba real es en el celular (#21).
 
+## Feedback post-preview (22/10)
+
+### Quick wins
+- [x] **QW1.** Quitar el badge "En vivo" del bracket (feo y sin aporte).
+- [x] **QW2.** Bloquear botón "Confirmar votación" tras enviar (evitar doble envío).
+- [x] **QW3.** Pausar polling/LiveRefresh en fase "Ingresar nombre" (peticiones cada 5s innecesarias).
+- [x] **QW4.** Corregir "Ir a votar" del owner en CRUCES: solo debe aparecer cuando hay cruce abierto/para votar ahora.
+- [x] **QW5.** Ocultar "Cambiar de nombre" y "Ya se sumaron X participantes" fuera de la fase de identificación.
+- [x] **QW6.** Asegurar que al finalizar el torneo se muestren los resultados sin necesidad de F5 (Realtime/polling).
+
+### Rediseño / A explorar
+- [ ] **RX1.** Pantalla de bienvenida para nuevos usuarios en `/` (hoy redirige directo al login).
+- [ ] **RX2.** Crear ícono para la app.
+- [ ] **RX3.** UI estilo juego de mesa (Triple Agent / Gartick Phone / Pinturillo). Hacer exploración con `/sdd-explore`.
+- [ ] **RX4.** Tras votar, llevar a una pantalla "¡Voto enviado!" esperando a los demás (mejor experiencia).
+- [ ] **RX5.** En RANKING mostrar "cuántos votaron / si votaron todos".
+- [ ] **RX6.** Resultados: detalle por ítem debajo de cada uno con quién votó qué.
+- [ ] **RX7.** Mejorar scroll horizontal del bracket en móvil (apilado/zoom/pan).
+- [ ] **RX8.** Revisar pantalla post-finalizar cruce (check, layout) — juicio de diseñador UI/UX.
+- [ ] **RX9.** Revisar si el owner debería poder ver "Ir a votar" en otros momentos.
+
 ---
 
 ## Completadas
