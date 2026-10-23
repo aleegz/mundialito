@@ -69,7 +69,9 @@ test("crear, cargar items, votar y ver los resultados", async ({
   });
 
   await test.step("iniciar la votacion", async () => {
-    await page.getByRole("button", { name: "Iniciar votación" }).click();
+    // El owner renombro "Iniciar votación" a "Iniciar torneo" en RANKING
+    // (UN solo click cierra la inscripcion Y abre la votacion).
+    await page.getByRole("button", { name: "Iniciar torneo" }).click();
     await page.getByRole("button", { name: "Sí, confirmar" }).click();
 
     // ACTIVE: el panel ofrece el link a la pantalla de voto.
@@ -91,7 +93,21 @@ test("crear, cargar items, votar y ver los resultados", async ({
     }
 
     await page.getByRole("button", { name: "Confirmar votación" }).click();
-    await expect(page.getByText("¡Voto registrado!")).toBeVisible();
+
+    /**
+     * QW2 (#22/10): tras enviar, el ballot se reemplaza por una pantalla
+     * de confirmacion clara —antes quedabas mirando el mismo ballot y
+     * parecia que faltaba algo— con salida explicita para editar.
+     */
+    await expect(page.getByText("¡Voto enviado!")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Cambiar mi voto" }),
+    ).toBeVisible();
+
+    // Y el ballot ya no esta: el boton de enviar desaparecio.
+    await expect(
+      page.getByRole("button", { name: "Confirmar votación" }),
+    ).toHaveCount(0);
   });
 
   await test.step("finalizar la votacion", async () => {
