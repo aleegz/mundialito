@@ -181,7 +181,7 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
 
 ### Quick wins
 - [x] **QW1.** Quitar el badge "En vivo" del bracket (feo y sin aporte).
-- [x] **QW2.** Bloquear botón "Confirmar votación" tras enviar (evitar doble envío).
+- [x] **QW2.** Tras enviar la votación, pantalla de confirmación "¡Voto enviado!" con botón "Cambiar mi voto" (opción B: no se pierde la edición pero desaparece la sensación de que falta un paso). Doble envío ya bloqueado por el estado `submitting`.
 - [x] **QW3.** Pausar polling/LiveRefresh en fase "Ingresar nombre" (peticiones cada 5s innecesarias).
 - [x] **QW4.** Corregir "Ir a votar" del owner en CRUCES: solo debe aparecer cuando hay cruce abierto/para votar ahora.
 - [x] **QW5.** Ocultar "Cambiar de nombre" y "Ya se sumaron X participantes" fuera de la fase de identificación.
@@ -191,12 +191,17 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
 - [ ] **RX1.** Pantalla de bienvenida para nuevos usuarios en `/` (hoy redirige directo al login).
 - [ ] **RX2.** Crear ícono para la app.
 - [ ] **RX3.** UI estilo juego de mesa (Triple Agent / Gartick Phone / Pinturillo). Hacer exploración con `/sdd-explore`.
-- [ ] **RX4.** Tras votar, llevar a una pantalla "¡Voto enviado!" esperando a los demás (mejor experiencia).
+- [x] **RX4.** Tras votar, llevar a una pantalla "¡Voto enviado!" esperando a los demás (mejor experiencia). — ✅ 2026-10-22, resuelto por QW2 (opción B): pantalla de confirmación con "Cambiar mi voto", sin perder la edición.
 - [ ] **RX5.** En RANKING mostrar "cuántos votaron / si votaron todos".
 - [ ] **RX6.** Resultados: detalle por ítem debajo de cada uno con quién votó qué.
 - [ ] **RX7.** Mejorar scroll horizontal del bracket en móvil (apilado/zoom/pan).
 - [ ] **RX8.** Revisar pantalla post-finalizar cruce (check, layout) — juicio de diseñador UI/UX.
 - [ ] **RX9.** Revisar si el owner debería poder ver "Ir a votar" en otros momentos.
+
+### Herramientas / Proceso (23/10)
+- [x] **TL1.** Shortcuts para cargar ítems rápido: **Ctrl (izq) + click** en "Agregar ítem" agrega 8 ítems de una (`Ítem 1`…`Ítem 8`). Es **utilería de dev/testing**, no una feature de usuario final. — ✅ 2026-10-23. Resuelto como atajo oculto con `title` que lo documenta; reusa `addFromText` (un solo POST), sin endpoint nuevo. El aviso "Se agregaron 8 ítems" también se ve con el input cerrado.
+- [x] **TL2.** Versionado: versión de la app (`v0.1.0`) en chiquito debajo del login y al pie del home. Fuente: **`package.json`**, bumpeada a mano. — ✅ 2026-10-23.
+  - **Ojo (riesgo anotado)**: con `package.json` como única fuente, la versión visible **no prueba por sí sola** que un cambio llegó a producción — hay que bumpear `version` a mano al mergear. Si esa disciplina se vuelve una molestia, el paso siguiente es sumar el hash de commit del build (`VERCEL_GIT_COMMIT_SHA`) al lado: automático y sin mentir.
 
 ---
 
