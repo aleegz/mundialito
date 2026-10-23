@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell";
+import { AppVersion } from "@/components/app-version";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -40,10 +41,18 @@ export default async function LoginPage({
       lead="Organizá torneos, invitá a tus amigos y seguí los resultados en vivo."
       footer={
         <>
-          ¿Todavía no tenés cuenta?{" "}
-          <Link href="/register" className="font-medium text-brand no-underline">
-            Creá una
-          </Link>
+          <p>
+            ¿Todavía no tenés cuenta?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-brand no-underline"
+            >
+              Creá una
+            </Link>
+          </p>
+          <div className="mt-3">
+            <AppVersion />
+          </div>
         </>
       }
     >
