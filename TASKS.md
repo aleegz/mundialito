@@ -181,7 +181,7 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
 
 ### Quick wins
 - [x] **QW1.** Quitar el badge "En vivo" del bracket (feo y sin aporte).
-- [x] **QW2.** Bloquear botón "Confirmar votación" tras enviar (evitar doble envío).
+- [x] **QW2.** Tras enviar la votación, pantalla de confirmación "¡Voto enviado!" con botón "Cambiar mi voto" (opción B: no se pierde la edición pero desaparece la sensación de que falta un paso). Doble envío ya bloqueado por el estado `submitting`.
 - [x] **QW3.** Pausar polling/LiveRefresh en fase "Ingresar nombre" (peticiones cada 5s innecesarias).
 - [x] **QW4.** Corregir "Ir a votar" del owner en CRUCES: solo debe aparecer cuando hay cruce abierto/para votar ahora.
 - [x] **QW5.** Ocultar "Cambiar de nombre" y "Ya se sumaron X participantes" fuera de la fase de identificación.
@@ -198,7 +198,9 @@ Doce hallazgos de uso real. **Todos verificados contra el código antes de tocar
 - [ ] **RX8.** Revisar pantalla post-finalizar cruce (check, layout) — juicio de diseñador UI/UX.
 - [ ] **RX9.** Revisar si el owner debería poder ver "Ir a votar" en otros momentos.
 
----
+### Herramientas / Proceso (23/10)
+- [ ] **TL1.** Shortcuts para cargar ítems rápido: p. ej. **Ctrl (izq) + click** en "Agregar ítem" agrega 8 ítems de una. Contexto: agilizar las pruebas manuales y el armado de torneos de prueba. **Ojo**: esto es utilería de dev/testing, no una feature de usuario final — decidir si va como atajo oculto o como botón visible tipo "Agregar 8 de prueba".
+- [ ] **TL2.** Versionado: mostrar la versión de la app en chiquito debajo del login/home, y trabajar con versionado semántico para identificar de un vistazo si un cambio ya llegó a master (y a producción). **A decidir**: fuente de la versión (package.json vs tag de git vs variable de entorno de Vercel en build time) y dónde exactamente se muestra.
 
 ## Completadas
 
