@@ -106,7 +106,15 @@ export default async function MundialitoPage({ params }: { params: Params }) {
   // CTA contextual segun estado (misma logica que antes, un solo bloque).
   const canVote =
     mundialito.status === "ACTIVE" || mundialito.status === "FINISHED";
-  const canVoteCruces = isCruces && mundialito.status === "VOTING";
+  /**
+   * CRUCES: "Ir a votar" SOLO cuando hay un cruce abierto ahora mismo.
+   * Antes bastaba con `status === "VOTING"`, asi que entre rondas —sin
+   * ningun cruce OPEN— el panel seguia invitando a votar (reporte del
+   * 22/10: "le dice todo el tiempo 'Ir a votar', por mas que no haya
+   * abierto el nuevo cruce"). `openMatch` es la unica senal de que hay
+   * algo que votar.
+   */
+  const canVoteCruces = isCruces && mundialito.status === "VOTING" && !!openMatch;
 
   /**
    * #12: con la copa terminada, el CTA del owner deja de ser "Ver los

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { findOwnParticipant } from "@/lib/supabase/own-participant";
+import { useLiveRefresh } from "@/components/live-refresh";
 import { isUuid } from "@/lib/validation/uuid";
 import {
   calculateItemResults,
@@ -117,6 +118,13 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
    * exige auth_user_id null— asi que la UI no ofrece editarlo.
    */
   const [identityFromAccount, setIdentityFromAccount] = useState(false);
+  /**
+   * Contador que fuerza recargar el mundo. Lo incrementa LiveRefresh
+   * cuando el torneo cambia en el servidor (sobre todo ACTIVE ->
+   * FINISHED). Sin esto, el votante quedaba mirando el ballot hasta
+   * tirar F5 para ver los resultados (reporte del 22/10).
+   */
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,7 +292,33 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [mundialitoId]);
+  }, [mundialitoId, reloadToken]);
+
+  /**
+   * Realtime: cuando el torneo cambia en el servidor (el owner finaliza,
+   * por ejemplo), se recarga el mundo para que el votante vea los
+   * resultados sin recargar a mano. Se mantiene el mismo contrato de
+   * LiveRefresh: si Realtime no esta disponible, no pasa nada —el
+   * votante siempre puede recargar, y el polling no aplica en RANKING.
+   */
+  /**
+   * Refs con el estado que decide si es seguro recargar. Recargar un
+   * ballot a medio completar borraria los puntajes sin guardar (load()
+   * rehidrata desde el server), asi que se salta ese caso: la persona
+   * termina, envia, y el proximo evento ya la muestra en los resultados.
+   */
+  const inProgressBallotRef = useRef(false);
+  useEffect(() => {
+    inProgressBallotRef.current = phase === "ballot" && !saved;
+  }, [phase, saved]);
+
+  useLiveRefresh(
+    mundialitoId,
+    useCallback(() => {
+      if (inProgressBallotRef.current) return;
+      setReloadToken((token) => token + 1);
+    }, []),
+  );
 
   /**
    * Auto-registro: el server crea el participante (mundialito ACTIVE)
@@ -748,6 +782,52 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const progressPct =
     items.length > 0 ? Math.round((scoredCount / items.length) * 100) : 0;
 
+  /**
+   * Pantalla de confirmacion tras enviar el voto (reporte del 22/10:
+   * "la experiencia me hace sentir que aun me falta hacer algo"). Antes,
+   * despues de enviar quedabas mirando el mismo ballot con el boton
+   * activo —daba la sensacion de que el envio no habia pasado. Ahora el
+   * ballot se reemplaza por un estado claro de "listo", con salida
+   * explicita para editar ("Cambiar mi voto"), asi la edicion sigue
+   * existiendo pero ya no compite con el envio.
+   */
+  if (saved) {
+    return (
+      <section>
+        <p className="eyebrow">Votación</p>
+        <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+
+        <div className="card card-pad mt-6 text-center" role="status">
+          <p className="text-5xl" aria-hidden="true">
+            ✅
+          </p>
+          <p className="h2 mt-3">¡Voto enviado!</p>
+          <p className="hint mt-2">
+            Registrado como <strong className="text-fg">{displayName}</strong>
+            {participants.length > 0
+              ? ` · ${participants.length} ${
+                  participants.length === 1 ? "participante" : "participantes"
+                } anotados`
+              : ""}
+            .
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setSaved(false)}
+            className="btn btn-secondary mt-5"
+          >
+            Cambiar mi voto
+          </button>
+        </div>
+
+        <p className="hint mt-4 text-center">
+          Podés modificarlo mientras la votación esté abierta.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section>
       <p className="eyebrow">Votación</p>
@@ -892,13 +972,10 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       )}
 
       <div aria-live="polite" className="mt-4 space-y-2">
-        {saved && (
-          <p className="alert alert-success" role="status">
-            ¡Voto registrado! Podés modificarlo mientras esté abierta.
-          </p>
-        )}
         {/* Mientras se edita el nombre, el error se muestra junto al
-            form (arriba) para no duplicar el mensaje. */}
+            form (arriba) para no duplicar el mensaje. El éxito del envío
+            ya no vive acá: con `saved` la sección entera es la pantalla
+            de confirmación. */}
         {!editingName && error && (
           <p className="alert alert-danger" role="alert">
             {error}

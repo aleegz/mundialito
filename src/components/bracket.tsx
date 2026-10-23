@@ -239,10 +239,11 @@ export function Bracket({
         >
           {isFinal ? <span className="bracket-final-tag">Final</span> : null}
 
-          {isOpen ? (
-            <span className="bracket-badge">
-              {match.vote_round > 1 ? `Desempate ${match.vote_round}` : "En vivo"}
-            </span>
+          {/* Solo el desempate se marca: el badge "En vivo"/"En votación"
+              se sacó (reporte del 22/10: se veía mal en celu y PC y no
+              aportaba). Queda únicamente la información de ronda. */}
+          {isOpen && match.vote_round > 1 ? (
+            <span className="bracket-badge">Desempate {match.vote_round}</span>
           ) : null}
 
           {slotRow(

@@ -408,7 +408,16 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Polling: refresca el mundo cada POLL_MS mientras la pestana esta
   // visible; pausa con document.hidden y retoma (con fetch inmediato)
   // al volver. El snapshot detecta el cambio de ronda y auto-avanza.
+  //
+  // No se polea en `identify` (pantalla de "Ingresar nombre"): ahi el
+  // mundo no cambia —nadie se suma solo— y el fetch cada 5s solo
+  // repetia los detalles del mundialito a lo tonto (reporte del
+  // 22/10: en incognito se veian peticiones constantes mientras
+  // alguien todavia estaba escribiendo su nombre). Se salta tambien
+  // en `loading`, que dura un instante y no aporta nada que repetir.
   useEffect(() => {
+    if (phase === "identify" || phase === "loading") return;
+
     let timer: ReturnType<typeof setInterval> | null = null;
 
     const start = () => {
@@ -441,7 +450,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refreshWorld]);
+  }, [refreshWorld, phase]);
 
   // ------------------------------------------------------------
   // Auto-registro (PARTICIPANTS_OPEN): mismo contrato que vote-client.
@@ -672,10 +681,6 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             status={mundialito?.status}
           />
         </div>
-
-        <div className="mt-4">
-          <ParticipantsPanel participants={participants} />
-        </div>
       </section>
     );
   }
@@ -714,7 +719,13 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             </>
           )}
 
+          {/* Identidad editable SOLO mientras la inscripcion esta
+              abierta: ahi todavia tiene sentido corregir el nombre. Una
+              vez que arranca el torneo, "Cambiar de nombre" y el
+              recordatorio de la cuenta acompañaban toda la partida sin
+              aportar nada (reporte del 22/10). */}
           {me &&
+            mundialito?.status === "PARTICIPANTS_OPEN" &&
             (me.auth_user_id ? (
               <p className="hint mt-4">
                 Tu nombre sale de tu cuenta: no se cambia desde acá.
