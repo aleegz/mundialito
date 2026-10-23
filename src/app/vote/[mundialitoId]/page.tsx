@@ -27,12 +27,8 @@ export default async function VotePage({ params }: { params: Params }) {
   const isOwner = await isOwnerViewing(mundialitoId);
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-32 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full bg-brand-soft opacity-60 blur-3xl"
-      />
-      <main className="page relative z-10">
+    <div className="game-page min-h-[100dvh]">
+      <main className="page game-shell">
         {isOwner ? (
           <Link
             href={`/mundialito/${mundialitoId}`}

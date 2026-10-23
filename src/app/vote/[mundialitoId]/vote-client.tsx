@@ -10,6 +10,7 @@ import {
   validateScore,
   type VoteRow,
 } from "@/lib/calculations/ranking";
+import { avatarForName, suggestedIdentity } from "@/lib/ui/random-identity";
 
 type Mundialito = {
   id: string;
@@ -108,7 +109,12 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [nameInput, setNameInput] = useState("");
+  const [nameInput, setNameInput] = useState(
+    () => suggestedIdentity(mundialitoId).name,
+  );
+  const [identityAvatar, setIdentityAvatar] = useState(
+    () => suggestedIdentity(mundialitoId).avatar,
+  );
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   /**
@@ -370,6 +376,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       window.localStorage.setItem(storageKey(mundialitoId), participantId);
       setSelectedId(participantId);
       setDisplayName(registeredName);
+      setIdentityAvatar(avatarForName(registeredName));
       setNameInput("");
       setScores({});
       setSaved(false);
@@ -603,7 +610,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
     return (
       <section>
-        <p className="eyebrow">Resultados</p>
+        <p className="game-kicker">Resultados</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
           <p className="lead mt-2">{mundialito.description}</p>
@@ -617,7 +624,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         {itemResultsSorted.length === 0 ? (
           <p className="hint mt-3">Todavía no hay votos registrados.</p>
         ) : (
-          <ol className="mt-4 space-y-2">
+          <ol className="mt-4 space-y-3">
             {itemResultsSorted.map((row) => {
               // La barra es la nota sobre 10: mismo dato que el
               // promedio, pero se lee la distancia de un vistazo.
@@ -626,7 +633,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
                 : 0;
 
               return (
-                <li key={row.itemId} className="card p-3.5">
+                <li key={row.itemId} className="game-panel p-3.5">
                   <div className="flex items-center gap-3">
                     <span
                       className={`flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-bold tabular-nums ${
@@ -716,13 +723,22 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "identify") {
     return (
       <section>
-        <p className="eyebrow">Inscripción</p>
+        <p className="game-kicker">Inscripción</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
           <p className="lead mt-2">{mundialito.description}</p>
         )}
 
-        <form onSubmit={onIdentify} className="card card-pad mt-6 space-y-4">
+        <form onSubmit={onIdentify} className="game-panel card-pad mt-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="identity-avatar" aria-hidden="true">
+              {identityAvatar}
+            </span>
+            <p className="hint">
+              Te asignamos un nombre para arrancar. Podés cambiarlo antes de
+              confirmar.
+            </p>
+          </div>
           <div className="field">
             <label className="label" htmlFor="voter-name">
               Tu nombre
@@ -733,6 +749,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               value={nameInput}
               onChange={(event) => {
                 setNameInput(event.target.value);
+                setIdentityAvatar(avatarForName(event.target.value));
                 setError(null);
               }}
               placeholder="Ej: Ana"
@@ -794,8 +811,15 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (saved) {
     return (
       <section>
-        <p className="eyebrow">Votación</p>
+        <p className="game-kicker">Votación</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+
+        <div className="game-progress mt-5" aria-label="Progreso de la votación">
+          <span className="game-progress-step" data-complete="true">Sumarte</span>
+          <span className="game-progress-step" data-active="true">Puntuar</span>
+          <span className="game-progress-step">Confirmar</span>
+          <span className="game-progress-step">Resultados</span>
+        </div>
 
         <div className="card card-pad mt-6 text-center" role="status">
           <p className="text-5xl" aria-hidden="true">
@@ -931,7 +955,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
           <ol className="mt-5 space-y-3">
             {items.map((item, index) => (
-              <li key={item.id} className="card card-pad">
+              <li
+                key={item.id}
+                className="game-score-card card card-pad"
+                data-scored={Number.isInteger(scores[item.id])}
+              >
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-semibold tabular-nums text-subtle">
                     {index + 1}
@@ -983,7 +1011,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         )}
       </div>
 
-      <div className="mt-6 space-y-2">
+      <div className="sticky bottom-3 z-10 mt-6 space-y-2">
         {items.length > 0 && !allScored && (
           <p className="hint">Puntuá todos los ítems para continuar.</p>
         )}

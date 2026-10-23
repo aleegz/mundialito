@@ -143,7 +143,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         </Link>
 
         {/* Encabezado del torneo */}
-        <header className="mt-6">
+        <header className="owner-header mt-6">
           <p className="eyebrow">{isOwner ? "Tu torneo" : "Torneo"}</p>
           <h1 className="h1 mt-2">{mundialito.name}</h1>
 
@@ -170,7 +170,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         ) : canVote || canVoteCruces ? (
           <Link
             href={`/vote/${id}`}
-            className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
+            className="owner-next card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
           >
             <span>
               <span className="block font-semibold text-fg">

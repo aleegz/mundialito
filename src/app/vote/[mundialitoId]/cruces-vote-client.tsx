@@ -8,11 +8,16 @@ import type { Database } from "@/types/database.types";
 import { Bracket } from "@/components/bracket";
 import { useLiveRefresh } from "@/components/live-refresh";
 import { matchTallies, type MatchTally } from "@/lib/calculations/bracket";
+import {
+  avatarForName,
+  suggestedIdentity,
+} from "@/lib/ui/random-identity";
 
 type Mundialito = Database["public"]["Tables"]["mundialitos"]["Row"];
 type Participant = Database["public"]["Tables"]["participants"]["Row"];
 type Item = Database["public"]["Tables"]["items"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
+type MatchVote = Database["public"]["Tables"]["match_votes"]["Row"];
 
 type Phase =
   | "loading"
@@ -118,6 +123,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [mundialito, setMundialito] = useState<Mundialito | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [matchVotes, setMatchVotes] = useState<MatchVote[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [me, setMe] = useState<Participant | null>(null);
   const [openMatch, setOpenMatch] = useState<Match | null>(null);
@@ -132,7 +138,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Eleccion local para el cruce abierto (A o B): itemId elegido.
   const [choice, setChoice] = useState<string | null>(null);
   const [savedRound, setSavedRound] = useState<number | null>(null);
-  const [nameInput, setNameInput] = useState("");
+  const [nameInput, setNameInput] = useState(
+    () => suggestedIdentity(mundialitoId).name,
+  );
+  const [identityAvatar, setIdentityAvatar] = useState(
+    () => suggestedIdentity(mundialitoId).avatar,
+  );
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,6 +154,19 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const worldKeyRef = useRef("");
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
+
+  useEffect(() => {
+    if (countdown === null) return;
+
+    const timer = window.setTimeout(() => {
+      setCountdown((value) => {
+        if (value === null || value <= 1) return null;
+        return value - 1;
+      });
+    }, 850);
+
+    return () => window.clearTimeout(timer);
+  }, [countdown]);
 
   /**
    * Identidad por cuenta: se consulta una sola vez por visita. Si la
@@ -157,6 +183,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     const key = `${snap.mundialito.status}:${open?.id ?? "-"}:${
       open?.vote_round ?? 0
     }:${snap.me?.id ?? "-"}`;
+    const isNewWorld = key !== worldKeyRef.current;
 
     setParticipants(snap.participants);
     setMatches(snap.matches);
@@ -172,6 +199,10 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     setMundialito(snap.mundialito);
     setMe(snap.me);
     setOpenMatch(open);
+
+    if (isNewWorld && open) {
+      setCountdown(3);
+    }
 
     if (phaseRef.current === "voting" && open) {
       // Restaurar la eleccion de ESTE cruce y ronda en localStorage.
@@ -304,6 +335,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       // Tally del bracket (#10) con las filas que RLS dejo pasar.
       setTallies(matchTallies(worldMatches, votesResult.data ?? []));
+      setMatchVotes(votesResult.data ?? []);
 
       // Conteo de votantes (#9): solo con cruce OPEN. La RPC es SECURITY
       // DEFINER (006) porque anon no lee match_votes mientras esta OPEN;
@@ -486,6 +518,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         storageKey(mundialitoId),
         data.participant.id,
       );
+      setIdentityAvatar(avatarForName(data.participant.display_name));
       setNameInput("");
       registered = true;
     } catch {
@@ -614,14 +647,25 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "identify") {
     return (
       <section>
-        <p className="eyebrow">Inscripción</p>
+        <p className="game-kicker">Inscripción</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         <p className="lead mt-2">
           Sumate con tu nombre antes del sorteo. Después ya no se aceptan
           participantes.
         </p>
 
-        <form onSubmit={onIdentify} className="card card-pad mt-6 space-y-4">
+        <GameProgress current="join" />
+
+        <form onSubmit={onIdentify} className="game-panel card-pad mt-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="identity-avatar" aria-hidden="true">
+              {identityAvatar}
+            </span>
+            <p className="hint">
+              Te asignamos un nombre para arrancar. Podés cambiarlo antes del
+              sorteo.
+            </p>
+          </div>
           <div className="field">
             <label className="label" htmlFor="cruces-name">
               Tu nombre
@@ -629,7 +673,10 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             <input
               id="cruces-name"
               value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
+              onChange={(e) => {
+                setNameInput(e.target.value);
+                setIdentityAvatar(avatarForName(e.target.value));
+              }}
               maxLength={100}
               required
               autoComplete="name"
@@ -667,18 +714,24 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "spectator") {
     return (
       <section>
-        <p className="eyebrow">Seguí el torneo</p>
+        <p className="game-kicker">Espectador</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         <p className="lead mt-2">
           La inscripción está cerrada: no se puede sumar quien no se registró
           antes del sorteo. Mirá cómo avanza el bracket mientras tanto.
         </p>
 
-        <div className="mt-6">
-          <Bracket tallies={tallies}
+        <GameProgress current="play" />
+
+          <div className="mt-6">
+            <Bracket
+              tallies={tallies}
             matches={matches}
             items={items}
             status={mundialito?.status}
+              onMatchClick={(match) => {
+                if (match.status === "RESOLVED") setSelectedMatch(match);
+              }}
           />
         </div>
       </section>
@@ -688,10 +741,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "waiting") {
     return (
       <section>
-        <p className="eyebrow">Sala de espera</p>
+        <p className="game-kicker">Sala de espera</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
 
-        <div className="card card-pad mt-4">
+        <GameProgress
+          current={mundialito?.status === "PARTICIPANTS_OPEN" ? "join" : "play"}
+        />
+
+        <div className="game-panel card-pad mt-4">
           <p className="h3">
             {me
               ? `Listo, ${me.display_name}.`
@@ -751,10 +808,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
         {matches.length > 0 && (
           <div className="mt-4">
-            <Bracket tallies={tallies}
+            <Bracket
+              tallies={tallies}
               matches={matches}
               items={items}
               status={mundialito?.status}
+              onMatchClick={(match) => {
+                if (match.status === "RESOLVED") setSelectedMatch(match);
+              }}
             />
           </div>
         )}
@@ -762,6 +823,16 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
         <div className="mt-4">
           <ParticipantsPanel participants={participants} />
         </div>
+
+        {selectedMatch ? (
+          <MatchDetailModal
+            match={selectedMatch}
+            items={items}
+            participants={participants}
+            votes={matchVotes}
+            onClose={() => setSelectedMatch(null)}
+          />
+        ) : null}
       </section>
     );
   }
@@ -778,13 +849,27 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
           {matches.length > 0 && (
             <div className="mt-6">
-              <Bracket tallies={tallies}
+              <Bracket
+                tallies={tallies}
                 matches={matches}
                 items={items}
                 status={mundialito?.status}
+                onMatchClick={(match) => {
+                  if (match.status === "RESOLVED") setSelectedMatch(match);
+                }}
               />
             </div>
           )}
+
+          {selectedMatch ? (
+            <MatchDetailModal
+              match={selectedMatch}
+              items={items}
+              participants={participants}
+              votes={matchVotes}
+              onClose={() => setSelectedMatch(null)}
+            />
+          ) : null}
         </section>
       );
     }
@@ -794,7 +879,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
     return (
       <section>
-        <p className="eyebrow">
+        <p className="game-kicker">
           Cruce {openMatch.round}.{openMatch.position + 1}
           {openMatch.vote_round > 1
             ? ` · desempate ${openMatch.vote_round}`
@@ -807,6 +892,8 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             : "Elegí cuál de los dos pasa de ronda."}
         </p>
 
+        <GameProgress current="play" />
+
         {/* Avance de la votacion (#9): el numero de votantes, nunca
             quien voto ni que eligio — eso es el secreto del voto. */}
         {voters && voters.eligible > 0 ? (
@@ -815,7 +902,27 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
           </p>
         ) : null}
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {openMatch.vote_round > 1 ? (
+          <div className="tie-banner mt-5" role="status">
+            <span className="tie-banner-label">Desempate</span>
+            <span>
+              La ronda anterior terminó empatada. Votá de nuevo para definir
+              quién avanza.
+            </span>
+          </div>
+        ) : null}
+
+        {countdown !== null ? (
+          <div className="countdown-panel mt-6" role="status" aria-live="assertive">
+            <div>
+              <span className="countdown-number" key={countdown}>
+                {countdown}
+              </span>
+              <p className="hint mt-2">Prepárense para elegir</p>
+            </div>
+          </div>
+        ) : (
+        <div className="game-stage mt-6 grid gap-3 sm:grid-cols-2">
           {slotItems.map((itemId, index) => {
             if (!itemId) return null;
 
@@ -830,7 +937,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
                 disabled={locked}
                 onClick={() => setChoice(itemId)}
                 aria-pressed={selected}
-                className={`choice min-h-[4.5rem] flex-col items-start gap-1 p-4 text-left ${
+                className={`choice game-choice flex-col items-start gap-1 p-4 text-left ${
                   selected ? "choice-selected" : ""
                 }`}
               >
@@ -842,8 +949,9 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
             );
           })}
         </div>
+        )}
 
-        {choice && !alreadyVoted && (
+        {choice && !alreadyVoted && countdown === null && (
           <button
             type="button"
             disabled={saving}
@@ -870,14 +978,28 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
           <div className="mt-8">
             <h2 className="h2">Bracket</h2>
             <div className="mt-3">
-              <Bracket tallies={tallies}
+              <Bracket
+                tallies={tallies}
                 matches={matches}
                 items={items}
                 status={mundialito?.status}
+                onMatchClick={(match) => {
+                  if (match.status === "RESOLVED") setSelectedMatch(match);
+                }}
               />
             </div>
           </div>
         )}
+
+        {selectedMatch ? (
+          <MatchDetailModal
+            match={selectedMatch}
+            items={items}
+            participants={participants}
+            votes={matchVotes}
+            onClose={() => setSelectedMatch(null)}
+          />
+        ) : null}
       </section>
     );
   }
@@ -885,16 +1007,34 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // FINISHED: bracket completo con ganadores.
   return (
     <section>
-      <p className="eyebrow">Resultados</p>
+      <p className="game-kicker">Resultados</p>
       <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
       <p className="lead mt-2">
         El torneo terminó. Este es el bracket completo con los ganadores
         marcados.
       </p>
 
+      <GameProgress current="results" />
+
       <div className="mt-6">
-        <Bracket tallies={tallies} matches={matches} items={items} status={mundialito?.status} />
+        <Bracket
+          tallies={tallies}
+          matches={matches}
+          items={items}
+          status={mundialito?.status}
+          onMatchClick={setSelectedMatch}
+        />
       </div>
+
+      {selectedMatch ? (
+        <MatchDetailModal
+          match={selectedMatch}
+          items={items}
+          participants={participants}
+          votes={matchVotes}
+          onClose={() => setSelectedMatch(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -919,6 +1059,124 @@ function ParticipantsPanel({ participants }: { participants: Participant[] }) {
       <p className="hint mt-1">
         {joined.map((p) => p.display_name).join(", ")}.
       </p>
+    </div>
+  );
+}
+
+function MatchDetailModal({
+  match,
+  items,
+  participants,
+  votes,
+  onClose,
+}: {
+  match: Match;
+  items: Item[];
+  participants: Participant[];
+  votes: MatchVote[];
+  onClose: () => void;
+}) {
+  const itemName = (itemId: string | null): string =>
+    items.find((item) => item.id === itemId)?.name ?? "Ítem";
+  const participantName = (participantId: string): string =>
+    participants.find((participant) => participant.id === participantId)
+      ?.display_name ?? "Participante";
+  const finalRoundVotes = votes.filter(
+    (vote) => vote.match_id === match.id && vote.vote_round === match.vote_round,
+  );
+  const votesFor = (itemId: string | null) =>
+    finalRoundVotes.filter((vote) => vote.chosen_item_id === itemId);
+
+  return (
+    <div className="match-detail-backdrop" role="presentation" onClick={onClose}>
+      <section
+        className="match-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="match-detail-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="game-kicker">Resultado del cruce</p>
+            <h2 id="match-detail-title" className="h2 mt-1">
+              {itemName(match.winner_item_id)} avanza
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onClose}
+            aria-label="Cerrar detalle del cruce"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {[match.item_a_id, match.item_b_id].map((itemId) => {
+            const itemVotes = votesFor(itemId);
+
+            return (
+              <div key={itemId}>
+                <p className="font-semibold text-fg">{itemName(itemId)}</p>
+                <ul className="mt-2">
+                  {itemVotes.length > 0 ? (
+                    itemVotes.map((vote) => (
+                      <li key={vote.participant_id} className="match-vote-row">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="identity-avatar" aria-hidden="true">
+                            {avatarForName(participantName(vote.participant_id))}
+                          </span>
+                          <span className="truncate">
+                            {participantName(vote.participant_id)}
+                          </span>
+                        </span>
+                        <span className="pill pill-neutral">Votó</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="hint mt-2">Sin votos visibles.</li>
+                  )}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GameProgress({ current }: { current: "join" | "play" | "results" }) {
+  return (
+    <div className="game-progress mt-5" aria-label="Progreso del torneo">
+      <span
+        className="game-progress-step"
+        data-active={current === "join"}
+        data-complete={current !== "join"}
+      >
+        Inscripción
+      </span>
+      <span
+        className="game-progress-step"
+        data-complete={current !== "join"}
+      >
+        Sorteo
+      </span>
+      <span
+        className="game-progress-step"
+        data-active={current === "play"}
+        data-complete={current === "results"}
+      >
+        Cruces
+      </span>
+      <span
+        className="game-progress-step"
+        data-active={current === "results"}
+      >
+        Resultados
+      </span>
     </div>
   );
 }
