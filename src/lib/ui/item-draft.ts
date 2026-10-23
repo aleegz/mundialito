@@ -12,6 +12,26 @@
 export const MAX_ITEMS_PER_SUBMIT = 100;
 
 /**
+ * Cantidad de items de relleno que carga el atajo de dev (Ctrl+click en
+ * "Agregar ítem"). Es utileria de testing, no una feature de usuario:
+ * armar un torneo de prueba a mano, ítem por ítem, es tedioso.
+ */
+export const DEV_FILLER_ITEM_COUNT = 8;
+
+/**
+ * Nombres genericos para el atajo de dev: "Ítem 1" ... "Ítem 8".
+ *
+ * Neutros a proposito: no simulan datos reales (que confundirian una
+ * prueba con un torneo de verdad) y son predecibles de leer en la lista.
+ * El numero arranca en 1 para coincidir con lo que uno espera contar.
+ */
+export function devFillerItemNames(
+  count: number = DEV_FILLER_ITEM_COUNT,
+): string[] {
+  return Array.from({ length: count }, (_, index) => `Ítem ${index + 1}`);
+}
+
+/**
  * Divide lo tipeado o pegado en nombres candidatos.
  *
  * Solo el salto de linea separa (a proposito: una coma puede ser parte

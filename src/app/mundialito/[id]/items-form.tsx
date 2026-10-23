@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import {
   MAX_ITEMS_PER_SUBMIT,
   addedItemsMessage,
+  devFillerItemNames,
   splitItemInput,
   uniqueItems,
 } from "@/lib/ui/item-draft";
@@ -179,6 +180,35 @@ export function AddItemsForm({
     setNote(null);
   }
 
+  /**
+   * Atajo de dev (utileria, no feature): Ctrl+click (o Cmd+click en Mac)
+   * en "Agregar ítem" mete 8 items genericos de una sola vez, sin abrir
+   * el input. Sirve para armar un torneo de prueba rapido sin cargar
+   * item por item.
+   *
+   * Reusa `addFromText`, que ya sabe mandar un lote en un solo POST: el
+   * atajo no necesita endpoint nuevo ni logica de red propia. `clearInput`
+   * es false porque nada de esto viene del input.
+   *
+   * El modificador se lee del evento de click, asi que funciona igual en
+   * teclado y en trackpad; en el celular no hay Ctrl, y esta bien: es una
+   * herramienta de escritorio.
+   */
+  function onAddTriggerClick(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!event.ctrlKey && !event.metaKey) {
+      // Apertura normal: se limpia el aviso del atajo anterior para no
+      // arrastrarlo al input ("Se agregaron 8 ítems" colgado de una
+      // corrida previa seria confuso).
+      setNote(null);
+      setError(null);
+      setOpen(true);
+      return;
+    }
+
+    event.preventDefault();
+    addFromText(devFillerItemNames().join("\n"), false);
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       // Enter suma de a uno (teclado fisico); nunca manda un form.
@@ -209,7 +239,10 @@ export function AddItemsForm({
       <li>
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={onAddTriggerClick}
+          // El atajo se documenta en el title: es utileria de escritorio
+          // que nadie descubre solo. Ctrl/Cmd + click = 8 items de una.
+          title="Atajo de dev: Ctrl (o ⌘) + click agrega 8 ítems de prueba"
           className="flex w-full items-center gap-2 py-2.5 text-left text-[0.9375rem] font-medium text-brand hover:bg-sunken"
         >
           <span aria-hidden="true" className="text-lg leading-none">
@@ -217,6 +250,21 @@ export function AddItemsForm({
           </span>
           Agregar ítem
         </button>
+
+        {/* El atajo no abre el input, asi que el aviso tiene que vivir
+            tambien en el estado cerrado: sin esto, el Ctrl+click agregaba
+            8 items sin ninguna señal de que algo habia pasado. */}
+        {error ? (
+          <p className="alert alert-danger mt-2" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {!error && note ? (
+          <p className="hint mt-2" role="status">
+            {note}
+          </p>
+        ) : null}
       </li>
     );
   }
