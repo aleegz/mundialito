@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   addedItemsMessage,
+  devFillerItemNames,
   splitItemInput,
   uniqueItems,
 } from "@/lib/ui/item-draft";
@@ -84,5 +85,34 @@ describe("addedItemsMessage", () => {
   it("alta parcial: dice cuantos entraron de cuantos", () => {
     expect(addedItemsMessage(2, 5)).toBe("Se agregaron 2 de 5 ítems.");
     expect(addedItemsMessage(0, 3)).toBe("Se agregaron 0 de 3 ítems.");
+  });
+});
+
+describe("devFillerItemNames (atajo de dev)", () => {
+  it("devuelve 8 items numerados desde 1", () => {
+    expect(devFillerItemNames()).toEqual([
+      "Ítem 1",
+      "Ítem 2",
+      "Ítem 3",
+      "Ítem 4",
+      "Ítem 5",
+      "Ítem 6",
+      "Ítem 7",
+      "Ítem 8",
+    ]);
+  });
+
+  it("respeta un count explicito", () => {
+    expect(devFillerItemNames(2)).toEqual(["Ítem 1", "Ítem 2"]);
+  });
+
+  it("no repite nombres: entra entero en un solo POST", () => {
+    const names = devFillerItemNames();
+
+    expect(uniqueItems(names)).toHaveLength(names.length);
+  });
+
+  it("queda por debajo del tope por submit", () => {
+    expect(devFillerItemNames().length).toBeLessThanOrEqual(100);
   });
 });

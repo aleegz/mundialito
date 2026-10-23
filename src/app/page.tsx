@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
+import { AppVersion } from "@/components/app-version";
 import { formatShortDate, modeMeta, statusMeta } from "@/lib/ui/labels";
 
 export const metadata: Metadata = { title: "Tus torneos" };
@@ -46,6 +47,10 @@ export default async function HomePage() {
             <Link href="/mundialito/new" className="btn btn-primary mt-3">
               Crear mi primer mundialito
             </Link>
+          </div>
+
+          <div className="mt-16 text-center">
+            <AppVersion />
           </div>
         </div>
       </main>
@@ -115,6 +120,10 @@ export default async function HomePage() {
               })}
           </div>
         </section>
+
+        <div className="mt-16 text-center">
+          <AppVersion />
+        </div>
       </div>
     </main>
   );
