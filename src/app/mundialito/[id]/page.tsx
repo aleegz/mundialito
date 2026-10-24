@@ -16,6 +16,7 @@ import { ShareLinks } from "./share-links";
 import { CopyShareCta } from "./copy-share-cta";
 import { LiveRefresh } from "@/components/live-refresh";
 import { matchTallies } from "@/lib/calculations/bracket";
+import { avatarForName } from "@/lib/ui/random-identity";
 
 type Params = Promise<{ id: string }>;
 
@@ -286,8 +287,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="avatar" aria-hidden="true">
-                      {p.display_name.trim().charAt(0)}
+                    <span className="identity-avatar" aria-hidden="true">
+                      {p.avatar || avatarForName(p.display_name)}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-[0.9375rem] font-medium text-fg">

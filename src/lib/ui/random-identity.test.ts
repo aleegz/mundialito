@@ -17,7 +17,7 @@ describe("randomIdentity", () => {
     const identity = randomIdentity(() => 1);
 
     expect(identity.name).toBe("Jugueton Robot");
-    expect(identity.avatar).toBe("🎲");
+    expect(identity.avatar).toBe("🌶️");
   });
 });
 

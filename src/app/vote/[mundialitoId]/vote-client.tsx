@@ -10,7 +10,7 @@ import {
   validateScore,
   type VoteRow,
 } from "@/lib/calculations/ranking";
-import { avatarForName, suggestedIdentity } from "@/lib/ui/random-identity";
+import { avatarForName, randomIdentity } from "@/lib/ui/random-identity";
 
 type Mundialito = {
   id: string;
@@ -22,6 +22,7 @@ type Mundialito = {
 type Participant = {
   id: string;
   display_name: string;
+  avatar: string | null;
 };
 
 type Item = {
@@ -109,12 +110,8 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [nameInput, setNameInput] = useState(
-    () => suggestedIdentity(mundialitoId).name,
-  );
-  const [identityAvatar, setIdentityAvatar] = useState(
-    () => suggestedIdentity(mundialitoId).avatar,
-  );
+  const [nameInput, setNameInput] = useState("");
+  const [identityAvatar, setIdentityAvatar] = useState("🎲");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   /**
@@ -131,6 +128,16 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
    * tirar F5 para ver los resultados (reporte del 22/10).
    */
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const identity = randomIdentity();
+    const timer = window.setTimeout(() => {
+      setNameInput((value) => value || identity.name);
+      setIdentityAvatar(identity.avatar);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [mundialitoId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +181,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           await Promise.all([
             supabase
               .from("participants")
-              .select("id, display_name")
+              .select("id, display_name, avatar")
               .eq("mundialito_id", mundialitoId)
               .order("display_name", { ascending: true }),
             supabase
@@ -227,14 +234,14 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           storedId
             ? supabase
                 .from("participants")
-                .select("id, display_name")
+                .select("id, display_name, avatar")
                 .eq("id", storedId)
                 .eq("mundialito_id", mundialitoId)
                 .maybeSingle()
             : null,
           supabase
             .from("participants")
-            .select("id, display_name")
+                .select("id, display_name, avatar")
             .eq("mundialito_id", mundialitoId)
             .order("display_name", { ascending: true }),
         ]);
@@ -265,7 +272,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       if (!me && own) {
         window.localStorage.setItem(storageKey(mundialitoId), own.id);
-        me = { id: own.id, display_name: own.display_name };
+        me = {
+          id: own.id,
+          display_name: own.display_name,
+          avatar: own.avatar,
+        };
       }
 
       setMundialito(data);
@@ -276,6 +287,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       if (me) {
         setSelectedId(me.id);
         setDisplayName(me.display_name);
+        setIdentityAvatar(me.avatar ?? avatarForName(me.display_name));
         setIdentityFromAccount(own?.id === me.id);
         // Prefill: si este navegador ya voto, se recuperan los puntajes.
         const existing = await fetchExistingVotes(mundialitoId, me.id);
@@ -350,7 +362,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       const response = await fetch("/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mundialitoId, name }),
+        body: JSON.stringify({ mundialitoId, name, avatar: identityAvatar }),
       });
 
       if (!response.ok) {
@@ -362,7 +374,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       }
 
       const data = (await response.json().catch(() => null)) as {
-        participant?: { id?: unknown; display_name?: unknown };
+        participant?: {
+          id?: unknown;
+          display_name?: unknown;
+          avatar?: unknown;
+        };
       } | null;
 
       const participantId = data?.participant?.id;
@@ -376,7 +392,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       window.localStorage.setItem(storageKey(mundialitoId), participantId);
       setSelectedId(participantId);
       setDisplayName(registeredName);
-      setIdentityAvatar(avatarForName(registeredName));
+      setIdentityAvatar(
+        typeof data?.participant?.avatar === "string"
+          ? data.participant.avatar
+          : avatarForName(registeredName),
+      );
       setNameInput("");
       setScores({});
       setSaved(false);
@@ -587,6 +607,10 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       participants.find((p) => p.id === participantId)?.display_name ??
       "Participante";
 
+    const avatarOf = (participantId: string): string =>
+      participants.find((p) => p.id === participantId)?.avatar ??
+      avatarForName(nameOf(participantId));
+
     const itemNameOf = (itemId: string): string =>
       items.find((i) => i.id === itemId)?.name ?? "Ítem";
 
@@ -666,6 +690,39 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
                         Mín {row.min} · Máx {row.max} · {row.voteCount}{" "}
                         {row.voteCount === 1 ? "voto" : "votos"}
                       </div>
+
+                      {(votesByItem.get(row.itemId) ?? []).length > 0 ? (
+                        <ul className="mt-3 border-t border-line pt-2">
+                          {(votesByItem.get(row.itemId) ?? [])
+                            .slice()
+                            .sort((a, b) =>
+                              nameOf(a.participant_id).localeCompare(
+                                nameOf(b.participant_id),
+                              ),
+                            )
+                            .map((vote) => (
+                              <li
+                                key={vote.participant_id}
+                                className="flex items-center justify-between gap-3 py-1.5 text-sm"
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className="identity-avatar"
+                                    aria-hidden="true"
+                                  >
+                                    {avatarOf(vote.participant_id)}
+                                  </span>
+                                  <span className="truncate">
+                                    {nameOf(vote.participant_id)}
+                                  </span>
+                                </span>
+                                <span className="flex-none font-semibold tabular-nums text-brand">
+                                  {vote.score}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                 </li>
@@ -674,48 +731,6 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           </ol>
         )}
 
-        <h2 className="h2 mt-8">Detalle por ítem</h2>
-
-        {items.length === 0 ? (
-          <p className="hint mt-3">No hay ítems para mostrar.</p>
-        ) : (
-          <div className="mt-4 space-y-4">
-            {items.map((item) => {
-              const rows = (votesByItem.get(item.id) ?? []).sort((a, b) =>
-                nameOf(a.participant_id).localeCompare(nameOf(b.participant_id)),
-              );
-
-              return (
-                <div key={item.id} className="card card-pad">
-                  <div className="font-semibold text-fg">{item.name}</div>
-                  {item.description && (
-                    <div className="hint">{item.description}</div>
-                  )}
-
-                  {rows.length === 0 ? (
-                    <p className="hint mt-2">Este ítem no recibió votos.</p>
-                  ) : (
-                    <ul className="mt-3 space-y-1.5">
-                      {rows.map((vote) => (
-                        <li
-                          key={vote.participant_id}
-                          className="flex items-center justify-between gap-3 rounded-lg bg-sunken px-3 py-1.5 text-sm"
-                        >
-                          <span className="truncate">
-                            {nameOf(vote.participant_id)}
-                          </span>
-                          <span className="flex-none font-semibold tabular-nums">
-                            {vote.score}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </section>
     );
   }
@@ -760,7 +775,8 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
             />
             <p className="hint">
               No hace falta cuenta: este nombre identifica tus votos. Los
-              nombres repetidos están bien.
+              nombres y avatares se reservan para que cada participante sea
+              reconocible.
             </p>
           </div>
 

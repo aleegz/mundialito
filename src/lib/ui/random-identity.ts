@@ -25,7 +25,44 @@ const NOUNS = [
   "Robot",
 ] as const;
 
-const AVATARS = ["🦊", "🐙", "🦄", "🐸", "🐯", "🚀", "🍕", "🎲"] as const;
+export const AVATARS = [
+  "🦊",
+  "🐙",
+  "🦄",
+  "🐸",
+  "🐯",
+  "🚀",
+  "🍕",
+  "🎲",
+  "🌵",
+  "🍩",
+  "🎸",
+  "🛸",
+  "🐼",
+  "🦁",
+  "🐳",
+  "🍉",
+  "🌈",
+  "🧩",
+  "🦋",
+  "🍄",
+  "🐨",
+  "🎯",
+  "🌞",
+  "🍿",
+  "🦖",
+  "🐝",
+  "🎨",
+  "🪐",
+  "🍀",
+  "🐧",
+  "🎤",
+  "🌶️",
+] as const;
+
+export function isKnownAvatar(value: string): boolean {
+  return (AVATARS as readonly string[]).includes(value);
+}
 
 function indexFrom(value: number, length: number): number {
   return Math.min(length - 1, Math.max(0, Math.floor(value * length)));

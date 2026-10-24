@@ -10,7 +10,7 @@ import { useLiveRefresh } from "@/components/live-refresh";
 import { matchTallies, type MatchTally } from "@/lib/calculations/bracket";
 import {
   avatarForName,
-  suggestedIdentity,
+  randomIdentity,
 } from "@/lib/ui/random-identity";
 
 type Mundialito = Database["public"]["Tables"]["mundialitos"]["Row"];
@@ -138,12 +138,8 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Eleccion local para el cruce abierto (A o B): itemId elegido.
   const [choice, setChoice] = useState<string | null>(null);
   const [savedRound, setSavedRound] = useState<number | null>(null);
-  const [nameInput, setNameInput] = useState(
-    () => suggestedIdentity(mundialitoId).name,
-  );
-  const [identityAvatar, setIdentityAvatar] = useState(
-    () => suggestedIdentity(mundialitoId).avatar,
-  );
+  const [nameInput, setNameInput] = useState("");
+  const [identityAvatar, setIdentityAvatar] = useState("🎲");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [saving, setSaving] = useState(false);
@@ -178,6 +174,16 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     id: null,
   });
 
+  useEffect(() => {
+    const identity = randomIdentity();
+    const timer = window.setTimeout(() => {
+      setNameInput((value) => value || identity.name);
+      setIdentityAvatar(identity.avatar);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [mundialitoId]);
+
   const applySnapshot = useCallback((snap: Snapshot) => {
     const open = snap.matches.find((m) => m.status === "OPEN") ?? null;
     const key = `${snap.mundialito.status}:${open?.id ?? "-"}:${
@@ -198,6 +204,9 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     phaseRef.current = resolvePhase(snap.mundialito.status, snap.matches, snap.me);
     setMundialito(snap.mundialito);
     setMe(snap.me);
+    if (snap.me) {
+      setIdentityAvatar(snap.me.avatar || avatarForName(snap.me.display_name));
+    }
     setOpenMatch(open);
 
     if (isNewWorld && open) {
@@ -501,11 +510,15 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       const response = await fetch("/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mundialitoId, name: nameInput }),
+        body: JSON.stringify({
+          mundialitoId,
+          name: nameInput,
+          avatar: identityAvatar,
+        }),
       });
 
       const data = (await response.json()) as {
-        participant?: { id: string; display_name: string };
+        participant?: { id: string; display_name: string; avatar: string };
         error?: string;
       };
 
@@ -517,6 +530,9 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       window.localStorage.setItem(
         storageKey(mundialitoId),
         data.participant.id,
+      );
+      setIdentityAvatar(
+        data.participant.avatar ?? avatarForName(data.participant.display_name),
       );
       setIdentityAvatar(avatarForName(data.participant.display_name));
       setNameInput("");
@@ -1081,6 +1097,9 @@ function MatchDetailModal({
   const participantName = (participantId: string): string =>
     participants.find((participant) => participant.id === participantId)
       ?.display_name ?? "Participante";
+  const participantAvatar = (participantId: string): string =>
+    participants.find((participant) => participant.id === participantId)
+      ?.avatar || avatarForName(participantName(participantId));
   const finalRoundVotes = votes.filter(
     (vote) => vote.match_id === match.id && vote.vote_round === match.vote_round,
   );
@@ -1126,7 +1145,7 @@ function MatchDetailModal({
                       <li key={vote.participant_id} className="match-vote-row">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="identity-avatar" aria-hidden="true">
-                            {avatarForName(participantName(vote.participant_id))}
+                            {participantAvatar(vote.participant_id)}
                           </span>
                           <span className="truncate">
                             {participantName(vote.participant_id)}

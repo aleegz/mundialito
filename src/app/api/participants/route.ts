@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validation/uuid";
 import { validateParticipantName } from "@/lib/validation/participant-name";
+import {
+  isKnownAvatar,
+  randomIdentity,
+} from "@/lib/ui/random-identity";
 
 type RequestBody = {
   mundialitoId?: unknown;
   name?: unknown;
+  avatar?: unknown;
 };
 
 /**
@@ -58,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cuerpo invalido." }, { status: 400 });
   }
 
-  const { mundialitoId, name } = body;
+  const { mundialitoId, name, avatar } = body;
 
   if (typeof mundialitoId !== "string" || !mundialitoId) {
     return NextResponse.json(
@@ -76,8 +81,8 @@ export async function POST(request: Request) {
 
   // ---------------------------------------------------------------
   // Auto-registro (link abierto): un nombre, sin sesion.
-  // Nombres duplicados aceptados a proposito: dos "Juan" son dos
-  // participantes distintos y cada uno vota lo suyo.
+  // La identidad sugerida no se repite dentro del Mundialito. Si alguien
+  // escribe un nombre ya usado, se reemplaza por una identidad disponible.
   // ---------------------------------------------------------------
   if (name !== undefined) {
     const validated = validateParticipantName(name);
@@ -153,10 +158,63 @@ export async function POST(request: Request) {
      * INSERT sobre (mundialito_id, display_name); incluir
      * auth_user_id aca romperia con "permission denied for column".
      */
+    const requestedAvatar =
+      typeof avatar === "string" && isKnownAvatar(avatar) ? avatar : null;
+    const { data: existingParticipants, error: participantsError } =
+      await supabase
+        .from("participants")
+        .select("display_name, avatar")
+        .eq("mundialito_id", mundialitoId);
+
+    if (participantsError) {
+      return NextResponse.json(
+        { error: "No se pudo preparar tu identidad." },
+        { status: 400 },
+      );
+    }
+
+    const usedNames = new Set(
+      (existingParticipants ?? []).map((participant) =>
+        participant.display_name.trim().toLocaleLowerCase(),
+      ),
+    );
+    const usedAvatars = new Set(
+      (existingParticipants ?? []).map((participant) => participant.avatar),
+    );
+
+    let identity = {
+      name: displayName,
+      avatar: requestedAvatar ?? randomIdentity().avatar,
+    };
+    let attempts = 0;
+
+    while (
+      (usedNames.has(identity.name.toLocaleLowerCase()) ||
+        usedAvatars.has(identity.avatar)) &&
+      attempts < 100
+    ) {
+      identity = randomIdentity();
+      attempts += 1;
+    }
+
+    if (
+      usedNames.has(identity.name.toLocaleLowerCase()) ||
+      usedAvatars.has(identity.avatar)
+    ) {
+      return NextResponse.json(
+        { error: "No quedan identidades disponibles en este Mundialito." },
+        { status: 409 },
+      );
+    }
+
     const { data, error } = await supabase
       .from("participants")
-      .insert({ mundialito_id: mundialitoId, display_name: displayName })
-      .select("id, display_name")
+      .insert({
+        mundialito_id: mundialitoId,
+        display_name: identity.name,
+        avatar: identity.avatar,
+      })
+      .select("id, display_name, avatar")
       .maybeSingle();
 
     if (error) {
@@ -176,7 +234,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      participant: { id: data.id, display_name: data.display_name },
+      participant: {
+        id: data.id,
+        display_name: data.display_name,
+        avatar: data.avatar,
+      },
     });
   }
 
