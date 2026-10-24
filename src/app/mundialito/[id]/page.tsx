@@ -17,6 +17,7 @@ import { CopyShareCta } from "./copy-share-cta";
 import { LiveRefresh } from "@/components/live-refresh";
 import { matchTallies } from "@/lib/calculations/bracket";
 import { avatarForName } from "@/lib/ui/random-identity";
+import { CrucesVoteClient } from "@/app/vote/[mundialitoId]/cruces-vote-client";
 
 type Params = Promise<{ id: string }>;
 
@@ -115,7 +116,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
    * abierto el nuevo cruce"). `openMatch` es la unica senal de que hay
    * algo que votar.
    */
-  const canVoteCruces = isCruces && mundialito.status === "VOTING" && !!openMatch;
+  const canVoteCruces =
+    !isOwner && isCruces && mundialito.status === "VOTING" && !!openMatch;
 
   /**
    * #12: con la copa terminada, el CTA del owner deja de ser "Ver los
@@ -249,8 +251,22 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           </section>
         ) : null}
 
-        {/* Bracket (aparece a partir del sorteo) */}
-        {isCruces && (matches?.length ?? 0) > 0 ? (
+        {/* Durante la votación el owner comparte la misma mesa de juego que
+            los invitados: voto, contador y bracket en vivo. Las acciones
+            para finalizar/avanzar quedan inmediatamente arriba. */}
+        {isOwner &&
+        isCruces &&
+        (mundialito.status === "VOTING" || mundialito.status === "FINISHED") ? (
+          <section className="mt-6" aria-label="Mesa de votación">
+            <CrucesVoteClient mundialitoId={id} />
+          </section>
+        ) : null}
+
+        {/* Bracket estático para los estados previos a la votación */}
+        {isCruces &&
+        (matches?.length ?? 0) > 0 &&
+        (!isOwner ||
+          (mundialito.status !== "VOTING" && mundialito.status !== "FINISHED")) ? (
           <section className="mt-6" aria-label="Bracket">
             <h2 className="h2">Bracket</h2>
             <div className="mt-4">

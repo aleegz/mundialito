@@ -141,6 +141,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [nameInput, setNameInput] = useState("");
   const [identityAvatar, setIdentityAvatar] = useState("🎲");
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [finalRevealCountdown, setFinalRevealCountdown] = useState<number | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +149,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
   // Refs espejo de lo que el polling necesita sin closures viejas.
   const phaseRef = useRef<Phase>("loading");
   const worldKeyRef = useRef("");
+  const statusRef = useRef<string | null>(null);
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
 
@@ -163,6 +165,19 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
     return () => window.clearTimeout(timer);
   }, [countdown]);
+
+  useEffect(() => {
+    if (finalRevealCountdown === null) return;
+
+    const timer = window.setTimeout(() => {
+      setFinalRevealCountdown((value) => {
+        if (value === null || value <= 1) return null;
+        return value - 1;
+      });
+    }, 850);
+
+    return () => window.clearTimeout(timer);
+  }, [finalRevealCountdown]);
 
   /**
    * Identidad por cuenta: se consulta una sola vez por visita. Si la
@@ -190,6 +205,9 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       open?.vote_round ?? 0
     }:${snap.me?.id ?? "-"}`;
     const isNewWorld = key !== worldKeyRef.current;
+    const wasPlaying = statusRef.current === "VOTING";
+    const isNewlyFinished = snap.mundialito.status === "FINISHED" &&
+      (wasPlaying || !statusRef.current);
 
     setParticipants(snap.participants);
     setMatches(snap.matches);
@@ -201,6 +219,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     }
 
     worldKeyRef.current = key;
+    statusRef.current = snap.mundialito.status;
     phaseRef.current = resolvePhase(snap.mundialito.status, snap.matches, snap.me);
     setMundialito(snap.mundialito);
     setMe(snap.me);
@@ -208,6 +227,14 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
       setIdentityAvatar(snap.me.avatar || avatarForName(snap.me.display_name));
     }
     setOpenMatch(open);
+
+    if (isNewlyFinished) {
+      const revealKey = `mundialito-final-reveal:${mundialitoId}`;
+      if (!window.sessionStorage.getItem(revealKey)) {
+        window.sessionStorage.setItem(revealKey, "seen");
+        setFinalRevealCountdown(3);
+      }
+    }
 
     if (isNewWorld && open) {
       setCountdown(3);
@@ -234,7 +261,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
     }
 
     setPhase(phaseRef.current);
-  }, []);
+  }, [mundialitoId]);
 
   /**
    * Trae el mundo (mundialito + matches + participantes + identidad) y
@@ -1032,7 +1059,18 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       <GameProgress current="results" />
 
-      <div className="mt-6">
+      {finalRevealCountdown !== null ? (
+        <div className="countdown-panel mt-6" role="status" aria-live="assertive">
+          <div>
+            <span className="countdown-number" key={finalRevealCountdown}>
+              {finalRevealCountdown}
+            </span>
+            <p className="hint mt-2">Preparando los resultados de la final</p>
+          </div>
+        </div>
+      ) : null}
+
+      {finalRevealCountdown === null ? <div className="mt-6">
         <Bracket
           tallies={tallies}
           matches={matches}
@@ -1040,7 +1078,7 @@ export function CrucesVoteClient({ mundialitoId }: { mundialitoId: string }) {
           status={mundialito?.status}
           onMatchClick={setSelectedMatch}
         />
-      </div>
+        </div> : null}
 
       {selectedMatch ? (
         <MatchDetailModal
