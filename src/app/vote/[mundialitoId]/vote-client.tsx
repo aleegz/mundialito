@@ -10,6 +10,7 @@ import {
   validateScore,
   type VoteRow,
 } from "@/lib/calculations/ranking";
+import { avatarForName, randomIdentity } from "@/lib/ui/random-identity";
 
 type Mundialito = {
   id: string;
@@ -21,6 +22,7 @@ type Mundialito = {
 type Participant = {
   id: string;
   display_name: string;
+  avatar: string | null;
 };
 
 type Item = {
@@ -109,6 +111,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [nameInput, setNameInput] = useState("");
+  const [identityAvatar, setIdentityAvatar] = useState("🎲");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   /**
@@ -125,6 +128,16 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
    * tirar F5 para ver los resultados (reporte del 22/10).
    */
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const identity = randomIdentity();
+    const timer = window.setTimeout(() => {
+      setNameInput((value) => value || identity.name);
+      setIdentityAvatar(identity.avatar);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [mundialitoId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +181,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           await Promise.all([
             supabase
               .from("participants")
-              .select("id, display_name")
+              .select("id, display_name, avatar")
               .eq("mundialito_id", mundialitoId)
               .order("display_name", { ascending: true }),
             supabase
@@ -221,14 +234,14 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           storedId
             ? supabase
                 .from("participants")
-                .select("id, display_name")
+                .select("id, display_name, avatar")
                 .eq("id", storedId)
                 .eq("mundialito_id", mundialitoId)
                 .maybeSingle()
             : null,
           supabase
             .from("participants")
-            .select("id, display_name")
+                .select("id, display_name, avatar")
             .eq("mundialito_id", mundialitoId)
             .order("display_name", { ascending: true }),
         ]);
@@ -259,7 +272,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
       if (!me && own) {
         window.localStorage.setItem(storageKey(mundialitoId), own.id);
-        me = { id: own.id, display_name: own.display_name };
+        me = {
+          id: own.id,
+          display_name: own.display_name,
+          avatar: own.avatar,
+        };
       }
 
       setMundialito(data);
@@ -270,6 +287,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       if (me) {
         setSelectedId(me.id);
         setDisplayName(me.display_name);
+        setIdentityAvatar(me.avatar ?? avatarForName(me.display_name));
         setIdentityFromAccount(own?.id === me.id);
         // Prefill: si este navegador ya voto, se recuperan los puntajes.
         const existing = await fetchExistingVotes(mundialitoId, me.id);
@@ -344,7 +362,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       const response = await fetch("/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mundialitoId, name }),
+        body: JSON.stringify({ mundialitoId, name, avatar: identityAvatar }),
       });
 
       if (!response.ok) {
@@ -356,7 +374,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       }
 
       const data = (await response.json().catch(() => null)) as {
-        participant?: { id?: unknown; display_name?: unknown };
+        participant?: {
+          id?: unknown;
+          display_name?: unknown;
+          avatar?: unknown;
+        };
       } | null;
 
       const participantId = data?.participant?.id;
@@ -370,6 +392,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       window.localStorage.setItem(storageKey(mundialitoId), participantId);
       setSelectedId(participantId);
       setDisplayName(registeredName);
+      setIdentityAvatar(
+        typeof data?.participant?.avatar === "string"
+          ? data.participant.avatar
+          : avatarForName(registeredName),
+      );
       setNameInput("");
       setScores({});
       setSaved(false);
@@ -580,6 +607,10 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       participants.find((p) => p.id === participantId)?.display_name ??
       "Participante";
 
+    const avatarOf = (participantId: string): string =>
+      participants.find((p) => p.id === participantId)?.avatar ??
+      avatarForName(nameOf(participantId));
+
     const itemNameOf = (itemId: string): string =>
       items.find((i) => i.id === itemId)?.name ?? "Ítem";
 
@@ -603,7 +634,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
     return (
       <section>
-        <p className="eyebrow">Resultados</p>
+        <p className="game-kicker">Resultados</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
           <p className="lead mt-2">{mundialito.description}</p>
@@ -617,7 +648,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         {itemResultsSorted.length === 0 ? (
           <p className="hint mt-3">Todavía no hay votos registrados.</p>
         ) : (
-          <ol className="mt-4 space-y-2">
+          <ol className="mt-4 space-y-3">
             {itemResultsSorted.map((row) => {
               // La barra es la nota sobre 10: mismo dato que el
               // promedio, pero se lee la distancia de un vistazo.
@@ -626,7 +657,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
                 : 0;
 
               return (
-                <li key={row.itemId} className="card p-3.5">
+                <li key={row.itemId} className="game-panel p-3.5">
                   <div className="flex items-center gap-3">
                     <span
                       className={`flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-bold tabular-nums ${
@@ -659,6 +690,39 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
                         Mín {row.min} · Máx {row.max} · {row.voteCount}{" "}
                         {row.voteCount === 1 ? "voto" : "votos"}
                       </div>
+
+                      {(votesByItem.get(row.itemId) ?? []).length > 0 ? (
+                        <ul className="mt-3 border-t border-line pt-2">
+                          {(votesByItem.get(row.itemId) ?? [])
+                            .slice()
+                            .sort((a, b) =>
+                              nameOf(a.participant_id).localeCompare(
+                                nameOf(b.participant_id),
+                              ),
+                            )
+                            .map((vote) => (
+                              <li
+                                key={vote.participant_id}
+                                className="flex items-center justify-between gap-3 py-1.5 text-sm"
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className="identity-avatar"
+                                    aria-hidden="true"
+                                  >
+                                    {avatarOf(vote.participant_id)}
+                                  </span>
+                                  <span className="truncate">
+                                    {nameOf(vote.participant_id)}
+                                  </span>
+                                </span>
+                                <span className="flex-none font-semibold tabular-nums text-brand">
+                                  {vote.score}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                 </li>
@@ -667,48 +731,6 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           </ol>
         )}
 
-        <h2 className="h2 mt-8">Detalle por ítem</h2>
-
-        {items.length === 0 ? (
-          <p className="hint mt-3">No hay ítems para mostrar.</p>
-        ) : (
-          <div className="mt-4 space-y-4">
-            {items.map((item) => {
-              const rows = (votesByItem.get(item.id) ?? []).sort((a, b) =>
-                nameOf(a.participant_id).localeCompare(nameOf(b.participant_id)),
-              );
-
-              return (
-                <div key={item.id} className="card card-pad">
-                  <div className="font-semibold text-fg">{item.name}</div>
-                  {item.description && (
-                    <div className="hint">{item.description}</div>
-                  )}
-
-                  {rows.length === 0 ? (
-                    <p className="hint mt-2">Este ítem no recibió votos.</p>
-                  ) : (
-                    <ul className="mt-3 space-y-1.5">
-                      {rows.map((vote) => (
-                        <li
-                          key={vote.participant_id}
-                          className="flex items-center justify-between gap-3 rounded-lg bg-sunken px-3 py-1.5 text-sm"
-                        >
-                          <span className="truncate">
-                            {nameOf(vote.participant_id)}
-                          </span>
-                          <span className="flex-none font-semibold tabular-nums">
-                            {vote.score}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </section>
     );
   }
@@ -716,13 +738,22 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (phase === "identify") {
     return (
       <section>
-        <p className="eyebrow">Inscripción</p>
+        <p className="game-kicker">Inscripción</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
         {mundialito?.description && (
           <p className="lead mt-2">{mundialito.description}</p>
         )}
 
-        <form onSubmit={onIdentify} className="card card-pad mt-6 space-y-4">
+        <form onSubmit={onIdentify} className="game-panel card-pad mt-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="identity-avatar" aria-hidden="true">
+              {identityAvatar}
+            </span>
+            <p className="hint">
+              Te asignamos un nombre para arrancar. Podés cambiarlo antes de
+              confirmar.
+            </p>
+          </div>
           <div className="field">
             <label className="label" htmlFor="voter-name">
               Tu nombre
@@ -733,6 +764,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
               value={nameInput}
               onChange={(event) => {
                 setNameInput(event.target.value);
+                setIdentityAvatar(avatarForName(event.target.value));
                 setError(null);
               }}
               placeholder="Ej: Ana"
@@ -743,7 +775,8 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
             />
             <p className="hint">
               No hace falta cuenta: este nombre identifica tus votos. Los
-              nombres repetidos están bien.
+              nombres y avatares se reservan para que cada participante sea
+              reconocible.
             </p>
           </div>
 
@@ -794,8 +827,15 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   if (saved) {
     return (
       <section>
-        <p className="eyebrow">Votación</p>
+        <p className="game-kicker">Votación</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+
+        <div className="game-progress mt-5" aria-label="Progreso de la votación">
+          <span className="game-progress-step" data-complete="true">Sumarte</span>
+          <span className="game-progress-step" data-active="true">Puntuar</span>
+          <span className="game-progress-step">Confirmar</span>
+          <span className="game-progress-step">Resultados</span>
+        </div>
 
         <div className="card card-pad mt-6 text-center" role="status">
           <p className="text-5xl" aria-hidden="true">
@@ -931,7 +971,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
 
           <ol className="mt-5 space-y-3">
             {items.map((item, index) => (
-              <li key={item.id} className="card card-pad">
+              <li
+                key={item.id}
+                className="game-score-card card card-pad"
+                data-scored={Number.isInteger(scores[item.id])}
+              >
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-semibold tabular-nums text-subtle">
                     {index + 1}
@@ -983,7 +1027,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
         )}
       </div>
 
-      <div className="mt-6 space-y-2">
+      <div className="sticky bottom-3 z-10 mt-6 space-y-2">
         {items.length > 0 && !allScored && (
           <p className="hint">Puntuá todos los ítems para continuar.</p>
         )}

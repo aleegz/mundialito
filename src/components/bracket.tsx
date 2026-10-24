@@ -8,6 +8,8 @@ export type BracketItem = Database["public"]["Tables"]["items"]["Row"];
 type Props = {
   matches: BracketMatch[];
   items: BracketItem[];
+  /** Permite abrir el detalle de un cruce ya resuelto en superficies interactivas. */
+  onMatchClick?: (match: BracketMatch) => void;
   /** Estado del mundialito: ajusta el copy del estado vacío. */
   status?: string;
   /**
@@ -99,6 +101,7 @@ const roundLabel = (round: number, totalRounds: number): string => {
 export function Bracket({
   matches,
   items,
+  onMatchClick,
   status,
   tallies,
 }: Props) {
@@ -230,12 +233,32 @@ export function Bracket({
         <div
           className={[
             "card relative",
+            onMatchClick && match.status === "RESOLVED"
+              ? "match-selectable"
+              : "",
             isFinal ? "bracket-final-node" : "flex h-full flex-col justify-center p-2.5",
             winner !== null ? "bracket-card--won" : "",
             isOpen ? "ring-2 ring-brand" : "",
           ]
             .filter(Boolean)
             .join(" ")}
+          role={onMatchClick && match.status === "RESOLVED" ? "button" : undefined}
+          tabIndex={onMatchClick && match.status === "RESOLVED" ? 0 : undefined}
+          onClick={
+            onMatchClick && match.status === "RESOLVED"
+              ? () => onMatchClick(match)
+              : undefined
+          }
+          onKeyDown={
+            onMatchClick && match.status === "RESOLVED"
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onMatchClick(match);
+                  }
+                }
+              : undefined
+          }
         >
           {isFinal ? <span className="bracket-final-tag">Final</span> : null}
 

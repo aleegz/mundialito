@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   description:
     "Organizá torneos con tus amigos: puntuá del 1 al 10 o jugá eliminación directa con votación en vivo.",
   applicationName: "Mundialito",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export const viewport: Viewport = {

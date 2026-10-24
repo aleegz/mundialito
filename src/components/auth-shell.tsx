@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 /**
  * Armazón de las pantallas de autenticacion (login y registro): mismo
@@ -32,8 +33,16 @@ export function AuthShell({
           className="mb-6 flex items-center justify-center gap-2.5 no-underline"
           aria-label="Mundialito"
         >
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-surface text-xl leading-none shadow-sm">
-            🏆
+          <span className="brand-icon brand-icon-lg" aria-hidden="true">
+            <Image
+              src="/icon.png"
+              alt=""
+              width={80}
+              height={80}
+              sizes="40px"
+              quality={90}
+              className="brand-icon-image"
+            />
           </span>
           <span className="text-lg font-semibold tracking-tight text-fg">
             Mundialito

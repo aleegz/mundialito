@@ -5,6 +5,7 @@ import type { Database } from "@/types/database.types";
 export type OwnParticipant = {
   id: string;
   display_name: string;
+  avatar: string;
   auth_user_id: string | null;
 };
 
@@ -35,7 +36,7 @@ export async function findOwnParticipant(
 
   const { data } = await supabase
     .from("participants")
-    .select("id, display_name, auth_user_id")
+    .select("id, display_name, avatar, auth_user_id")
     .eq("mundialito_id", mundialitoId)
     .eq("auth_user_id", session.user.id)
     .maybeSingle();

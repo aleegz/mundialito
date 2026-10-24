@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/app-header";
 import { MODE_DESCRIPTION } from "@/lib/ui/labels";
 import { ownerDisplayName } from "@/lib/validation/participant-name";
+import { randomIdentity } from "@/lib/ui/random-identity";
 
 export const metadata: Metadata = { title: "Nuevo torneo" };
 
@@ -83,6 +84,7 @@ export default async function NewMundialitoPage({
           fullName: user.user_metadata?.full_name,
           email: user.email,
         }),
+        avatar: randomIdentity().avatar,
         auth_user_id: user.id,
       });
 

@@ -51,6 +51,7 @@ const LIVE_TABLES = [
 export function useLiveRefresh(
   mundialitoId: string,
   onEvent?: () => void,
+  channelScope = "client",
 ): void {
   // El callback cambia de identidad en cada render (el polling pasa su
   // refreshWorld); la suscripcion se hace UNA sola vez y se le pasa la
@@ -97,7 +98,13 @@ export function useLiveRefresh(
     };
 
     // Un solo canal para las cinco tablas: mismo socket, mismo join.
-    const channel = supabase.channel(`live-refresh:${mundialitoId}`);
+    // Una misma pantalla puede necesitar dos efectos distintos: el client
+    // refresca su snapshot local y el dashboard refresca el Server Component.
+    // Supabase no permite agregar callbacks a un canal después de subscribe,
+    // así que cada responsabilidad tiene su propio canal.
+    const channel = supabase.channel(
+      `live-refresh:${mundialitoId}:${channelScope}`,
+    );
     for (const { table, column } of LIVE_TABLES) {
       channel.on(
         "postgres_changes",
@@ -119,7 +126,7 @@ export function useLiveRefresh(
       document.removeEventListener("visibilitychange", onVisibility);
       void supabase.removeChannel(channel);
     };
-  }, [mundialitoId]);
+  }, [mundialitoId, channelScope]);
 }
 
 /**
@@ -131,7 +138,7 @@ export function LiveRefresh({ mundialitoId }: { mundialitoId: string }) {
   const router = useRouter();
   const refresh = useCallback(() => router.refresh(), [router]);
 
-  useLiveRefresh(mundialitoId, refresh);
+  useLiveRefresh(mundialitoId, refresh, "dashboard");
 
   return null;
 }

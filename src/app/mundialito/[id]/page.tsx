@@ -16,6 +16,8 @@ import { ShareLinks } from "./share-links";
 import { CopyShareCta } from "./copy-share-cta";
 import { LiveRefresh } from "@/components/live-refresh";
 import { matchTallies } from "@/lib/calculations/bracket";
+import { avatarForName } from "@/lib/ui/random-identity";
+import { CrucesVoteClient } from "@/app/vote/[mundialitoId]/cruces-vote-client";
 
 type Params = Promise<{ id: string }>;
 
@@ -114,7 +116,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
    * abierto el nuevo cruce"). `openMatch` es la unica senal de que hay
    * algo que votar.
    */
-  const canVoteCruces = isCruces && mundialito.status === "VOTING" && !!openMatch;
+  const canVoteCruces =
+    !isOwner && isCruces && mundialito.status === "VOTING" && !!openMatch;
 
   /**
    * #12: con la copa terminada, el CTA del owner deja de ser "Ver los
@@ -143,7 +146,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         </Link>
 
         {/* Encabezado del torneo */}
-        <header className="mt-6">
+        <header className="owner-header mt-6">
           <p className="eyebrow">{isOwner ? "Tu torneo" : "Torneo"}</p>
           <h1 className="h1 mt-2">{mundialito.name}</h1>
 
@@ -170,7 +173,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         ) : canVote || canVoteCruces ? (
           <Link
             href={`/vote/${id}`}
-            className="card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
+            className="owner-next card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
           >
             <span>
               <span className="block font-semibold text-fg">
@@ -248,8 +251,22 @@ export default async function MundialitoPage({ params }: { params: Params }) {
           </section>
         ) : null}
 
-        {/* Bracket (aparece a partir del sorteo) */}
-        {isCruces && (matches?.length ?? 0) > 0 ? (
+        {/* Durante la votación el owner comparte la misma mesa de juego que
+            los invitados: voto, contador y bracket en vivo. Las acciones
+            para finalizar/avanzar quedan inmediatamente arriba. */}
+        {isOwner &&
+        isCruces &&
+        (mundialito.status === "VOTING" || mundialito.status === "FINISHED") ? (
+          <section className="mt-6" aria-label="Mesa de votación">
+            <CrucesVoteClient mundialitoId={id} />
+          </section>
+        ) : null}
+
+        {/* Bracket estático para los estados previos a la votación */}
+        {isCruces &&
+        (matches?.length ?? 0) > 0 &&
+        (!isOwner ||
+          (mundialito.status !== "VOTING" && mundialito.status !== "FINISHED")) ? (
           <section className="mt-6" aria-label="Bracket">
             <h2 className="h2">Bracket</h2>
             <div className="mt-4">
@@ -286,8 +303,8 @@ export default async function MundialitoPage({ params }: { params: Params }) {
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="avatar" aria-hidden="true">
-                      {p.display_name.trim().charAt(0)}
+                    <span className="identity-avatar" aria-hidden="true">
+                      {p.avatar || avatarForName(p.display_name)}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-[0.9375rem] font-medium text-fg">

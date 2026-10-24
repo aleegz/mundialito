@@ -129,9 +129,11 @@ test("crear, cargar items, votar y ver los resultados", async ({
     ).toBeVisible();
 
     // Un solo votante: el promedio del primero es exactamente su nota.
+    // El detalle de cada voto vive dentro de la tarjeta del ítem; ya no
+    // existe una segunda sección duplicada debajo del ranking.
     await expect(
       page.getByRole("heading", { name: "Detalle por ítem" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.getByText("9,00")).toBeVisible();
 
     /**
