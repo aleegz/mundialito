@@ -1169,4 +1169,32 @@
     font-weight: 650;
     text-transform: uppercase;
   }
+
+  .brand-icon {
+    display: grid;
+    flex: none;
+    overflow: hidden;
+    place-items: center;
+    background-color: var(--brand-soft);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .brand-icon-sm {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.75rem;
+  }
+
+  .brand-icon-lg {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.875rem;
+  }
+
+  .brand-icon-image {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: contain;
+  }
 }

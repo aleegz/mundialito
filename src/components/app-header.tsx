@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { logout } from "@/lib/actions/auth";
 
 /**
@@ -26,8 +27,16 @@ export function AppHeader({
           className="flex items-center gap-2.5 rounded-lg no-underline"
           aria-label="Ir al inicio"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-soft text-base leading-none">
-            🏆
+          <span className="brand-icon brand-icon-sm" aria-hidden="true">
+            <Image
+              src="/icon.png"
+              alt=""
+              width={64}
+              height={64}
+              sizes="32px"
+              quality={90}
+              className="brand-icon-image"
+            />
           </span>
           <span className="text-[0.9375rem] font-semibold tracking-tight text-fg">
             Mundialito
