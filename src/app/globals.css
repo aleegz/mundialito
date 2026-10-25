@@ -99,7 +99,7 @@
   --play-indigo-ink: #31265a;
   --play-cyan: #22d3ee;
   --play-cyan-soft: color-mix(in oklab, var(--play-cyan) 14%, transparent);
-  --play-glow: color-mix(in oklab, var(--play-cyan) 28%, transparent);
+  --play-glow: color-mix(in oklab, var(--play-cyan) 22%, transparent);
   --play-card: color-mix(in oklab, var(--surface) 96%, var(--play-indigo) 4%);
   --play-line: color-mix(in oklab, var(--line-strong) 88%, var(--play-cyan) 12%);
 
@@ -149,7 +149,7 @@
     --play-indigo-ink: #b9b0ff;
     --play-cyan: #22d3ee;
     --play-cyan-soft: color-mix(in oklab, var(--play-cyan) 18%, transparent);
-    --play-glow: color-mix(in oklab, var(--play-cyan) 26%, transparent);
+    --play-glow: color-mix(in oklab, var(--play-cyan) 20%, transparent);
     --play-card: color-mix(in oklab, var(--surface) 92%, var(--play-indigo) 8%);
     --play-line: color-mix(in oklab, var(--line-strong) 80%, var(--play-cyan) 20%);
 

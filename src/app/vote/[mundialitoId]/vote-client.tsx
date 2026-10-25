@@ -815,6 +815,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
   const progressPct =
     items.length > 0 ? Math.round((scoredCount / items.length) * 100) : 0;
 
+  const votedParticipantIds = new Set(votes.map((vote) => vote.participant_id));
+  const votedCount = participants.filter((participant) =>
+    votedParticipantIds.has(participant.id),
+  ).length;
+
   /**
    * Pantalla de confirmacion tras enviar el voto (reporte del 22/10:
    * "la experiencia me hace sentir que aun me falta hacer algo"). Antes,
@@ -829,6 +834,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
       <section>
         <p className="game-kicker">Votación</p>
         <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+        {participants.length > 0 ? (
+          <p className="hint mt-1">
+            {votedCount} de {participants.length} ya votaron.
+          </p>
+        ) : null}
 
         <div className="game-progress mt-5" aria-label="Progreso de la votación">
           <span className="game-progress-step" data-complete="true">Sumarte</span>
@@ -837,7 +847,7 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
           <span className="game-progress-step">Resultados</span>
         </div>
 
-        <div className="card card-pad mt-6 text-center" role="status">
+        <div className="play-card card-pad mt-6 text-center" role="status">
           <p className="text-5xl" aria-hidden="true">
             ✅
           </p>
@@ -872,6 +882,11 @@ export function VoteClient({ mundialitoId }: { mundialitoId: string }) {
     <section>
       <p className="eyebrow">Votación</p>
       <h1 className="h1 mt-2">{mundialito?.name ?? "Mundialito"}</h1>
+      {participants.length > 0 ? (
+        <p className="hint mt-1">
+          {votedCount} de {participants.length} ya votaron.
+        </p>
+      ) : null}
 
       {editingName ? (
         <form onSubmit={onSaveName} className="card card-pad mt-4 space-y-4">
