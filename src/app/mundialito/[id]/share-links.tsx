@@ -84,7 +84,7 @@ export function ShareLinks({ mundialitoId }: Props) {
   }
 
   return (
-    <section className="card card-pad mt-6" aria-label="Compartir para votar">
+    <section className="play-card card-pad mt-6" aria-label="Compartir para votar">
       <h2 className="h3">Compartí el link</h2>
       <p className="hint mt-1">
         Cualquiera con este enlace puede votar. Pasalo por WhatsApp o que

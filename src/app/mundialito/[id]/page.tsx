@@ -146,16 +146,16 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         </Link>
 
         {/* Encabezado del torneo */}
-        <header className="owner-header mt-6">
-          <p className="eyebrow">{isOwner ? "Tu torneo" : "Torneo"}</p>
-          <h1 className="h1 mt-2">{mundialito.name}</h1>
+        <header className="play-hero mt-6">
+          <p className="play-kicker">{isOwner ? "Tu partida" : "Partida"}</p>
+          <h1 className="h1 mt-3">{mundialito.name}</h1>
 
           {mundialito.description ? (
             <p className="lead mt-2 max-w-2xl">{mundialito.description}</p>
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className={`pill ${status.pill}`}>
+            <span className={`pill ${status.pill} play-pill`}>
               <span className="dot" aria-hidden="true" />
               {status.label}
             </span>
@@ -173,7 +173,7 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         ) : canVote || canVoteCruces ? (
           <Link
             href={`/vote/${id}`}
-            className="owner-next card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
+            className="play-card play-card-hover card-pad card-link mt-6 flex items-center justify-between gap-4"
           >
             <span>
               <span className="block font-semibold text-fg">

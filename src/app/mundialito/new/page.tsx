@@ -119,12 +119,14 @@ export default async function NewMundialitoPage({
           ← Volver
         </Link>
 
-        <p className="eyebrow mt-6">Nuevo torneo</p>
-        <h1 className="h1 mt-2">Creá tu mundialito</h1>
-        <p className="lead mt-2">
-          Empezá por el nombre y el modo: los ítems vienen después, y los
-          participantes se suman solos desde el link.
-        </p>
+        <div className="play-hero mt-6">
+          <p className="play-kicker">Nueva partida</p>
+          <h1 className="h1 mt-3">Creá tu mundialito</h1>
+          <p className="lead mt-2 max-w-lg">
+            Empezá por el nombre y el modo: los ítems vienen después, y los
+            participantes se suman solos desde el link.
+          </p>
+        </div>
 
         {errorMessage ? (
           <p className="alert alert-danger mt-6" role="alert">
@@ -132,7 +134,7 @@ export default async function NewMundialitoPage({
           </p>
         ) : null}
 
-        <form action={createMundialito} className="card card-pad mt-6 space-y-5">
+        <form action={createMundialito} className="play-card card-pad mt-6 space-y-5">
           <div className="field">
             <label className="label" htmlFor="name">
               Nombre
