@@ -59,12 +59,12 @@ export function ItemsSection({ mundialitoId, items, canEdit }: Props) {
   }
 
   return (
-    <section className="card card-pad mt-6" aria-label="Items">
+    <section className="play-card card-pad mt-6" aria-label="Items">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="h3">Ítems</h2>
         {/* El contador cuenta tambien lo que todavia no confirmo el server:
             es lo que el usuario ve en la lista. */}
-        <span className="hint">{items.length + pending.length}</span>
+        <span className="pill pill-neutral play-pill">{items.length + pending.length}</span>
       </div>
 
       {items.length || canEdit ? (

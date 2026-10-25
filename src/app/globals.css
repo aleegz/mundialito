@@ -90,9 +90,18 @@
   --game-ink: #172326;
   --game-paper: #fffdf8;
   --game-surface: #f5efe4;
-  --game-accent: #e08a42;
-  --game-accent-soft: #fff0df;
+  --game-accent: color-mix(in oklab, var(--play-indigo) 88%, white);
+  --game-accent-soft: color-mix(in oklab, var(--play-indigo) 16%, transparent);
   --game-line: #ded2c0;
+
+  /* --- Play feel (dialoga con el ícono índigo + cian) --- */
+  --play-indigo: #4d3a7c;
+  --play-indigo-ink: #31265a;
+  --play-cyan: #22d3ee;
+  --play-cyan-soft: color-mix(in oklab, var(--play-cyan) 14%, transparent);
+  --play-glow: color-mix(in oklab, var(--play-cyan) 22%, transparent);
+  --play-card: color-mix(in oklab, var(--surface) 96%, var(--play-indigo) 4%);
+  --play-line: color-mix(in oklab, var(--line-strong) 88%, var(--play-cyan) 12%);
 
   --success: #15803d;
   --success-soft: #e8f6ed;
@@ -103,7 +112,7 @@
   --info: #1d4ed8;
   --info-soft: #e9eefc;
 
-  --ring: color-mix(in oklab, var(--brand) 35%, transparent);
+  --ring: color-mix(in oklab, var(--play-cyan) 32%, transparent);
   --shadow-color: 15 23 42;
 }
 
@@ -131,9 +140,18 @@
     --game-ink: #e7ecea;
     --game-paper: #151b1d;
     --game-surface: #202a2b;
-    --game-accent: #f2a35d;
-    --game-accent-soft: color-mix(in oklab, var(--game-accent) 17%, transparent);
+    --game-accent: color-mix(in oklab, var(--play-indigo-ink) 92%, white);
+    --game-accent-soft: color-mix(in oklab, var(--play-indigo-ink) 18%, transparent);
     --game-line: #394342;
+
+    /* --- Play feel (dialoga con el ícono índigo + cian) --- */
+    --play-indigo: #7c6bff;
+    --play-indigo-ink: #b9b0ff;
+    --play-cyan: #22d3ee;
+    --play-cyan-soft: color-mix(in oklab, var(--play-cyan) 18%, transparent);
+    --play-glow: color-mix(in oklab, var(--play-cyan) 20%, transparent);
+    --play-card: color-mix(in oklab, var(--surface) 92%, var(--play-indigo) 8%);
+    --play-line: color-mix(in oklab, var(--line-strong) 80%, var(--play-cyan) 20%);
 
     --success: #4ade80;
     --success-soft: color-mix(in oklab, var(--success) 16%, transparent);
@@ -245,7 +263,7 @@
   }
 
   .game-kicker {
-    color: var(--game-accent);
+    color: var(--play-indigo-ink);
     font-size: 0.75rem;
     font-weight: 750;
     letter-spacing: 0.1em;
@@ -300,15 +318,17 @@
   }
 
   .game-choice:hover:not(:disabled) {
-    border-color: var(--game-accent);
+    border-color: color-mix(in oklab, var(--play-cyan) 42%, var(--game-line));
+    box-shadow: 0 0 0 1px var(--play-glow);
     transform: translateY(-2px);
   }
 
   .game-choice.choice-selected {
-    border-color: var(--game-accent);
-    background-color: var(--game-accent-soft);
+    border-color: color-mix(in oklab, var(--play-cyan) 48%, var(--game-line));
+    background: radial-gradient(520px 200px at 50% 0, var(--play-cyan-soft), transparent),
+      var(--game-accent-soft);
     color: var(--game-ink);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--game-accent) 25%, transparent), 0 4px 0 color-mix(in oklab, var(--game-accent) 60%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--play-cyan) 24%, transparent), 0 6px 0 color-mix(in oklab, var(--play-line) 70%, transparent);
   }
 
   .game-score-card {
@@ -317,7 +337,8 @@
   }
 
   .game-score-card[data-scored="true"] {
-    border-color: color-mix(in oklab, var(--brand) 55%, var(--game-line));
+    border-color: color-mix(in oklab, var(--play-cyan) 48%, var(--game-line));
+    box-shadow: 0 0 0 1px var(--play-glow);
   }
 
   .identity-avatar {
@@ -326,11 +347,14 @@
     height: 2.5rem;
     flex: none;
     place-items: center;
-    border: 1px solid var(--game-line);
+    border: 1px solid color-mix(in oklab, var(--play-cyan) 34%, var(--play-line));
     border-radius: 0.875rem;
-    background-color: var(--game-accent-soft);
+    background: radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--play-cyan) 16%, transparent), transparent 70%),
+      color-mix(in oklab, var(--surface) 92%, var(--play-indigo) 12%);
+    color: var(--play-indigo-ink);
     font-size: 1.375rem;
     line-height: 1;
+    box-shadow: 0 18px 60px -36px var(--play-glow);
     animation: identity-float 3.2s ease-in-out infinite;
   }
 
@@ -338,14 +362,16 @@
     display: grid;
     min-height: 7rem;
     place-items: center;
-    border: 1px solid color-mix(in oklab, var(--game-accent) 45%, var(--game-line));
+    border: 1px solid color-mix(in oklab, var(--play-cyan) 38%, var(--play-line));
     border-radius: var(--radius-xl);
-    background-color: var(--game-accent-soft);
+    background: radial-gradient(600px 200px at 50% 0, var(--play-cyan-soft), transparent),
+      var(--game-accent-soft);
     text-align: center;
+    box-shadow: 0 24px 60px -40px var(--play-glow);
   }
 
   .countdown-number {
-    color: var(--game-accent);
+    color: var(--play-indigo-ink);
     font-size: clamp(3rem, 16vw, 5rem);
     font-weight: 800;
     line-height: 0.9;
@@ -356,15 +382,17 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    border-left: 4px solid var(--game-accent);
+    border-left: 4px solid color-mix(in oklab, var(--play-cyan) 46%, var(--play-indigo));
     border-radius: var(--radius-md);
-    background-color: var(--game-accent-soft);
+    background: radial-gradient(520px 200px at 0 50%, var(--play-cyan-soft), transparent),
+      var(--game-accent-soft);
     padding: 0.75rem 1rem;
     color: var(--game-ink);
+    box-shadow: 0 18px 60px -40px var(--play-glow);
   }
 
   .tie-banner-label {
-    color: var(--game-accent);
+    color: var(--play-indigo-ink);
     font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -523,6 +551,121 @@
     box-shadow: var(--shadow-md);
     border-color: var(--line-strong);
     transform: translateY(-2px);
+  }
+
+  /* --- Play feel / game-like sin carnaval --- */
+  .play-hero {
+    position: relative;
+    border-radius: var(--radius-2xl);
+    padding: clamp(1.25rem, 2vw, 2rem);
+    background:
+      radial-gradient(900px 320px at 50% -20%, var(--play-cyan-soft), transparent),
+      radial-gradient(700px 280px at 80% -10%, color-mix(in oklab, var(--play-indigo) 10%, transparent), transparent),
+      linear-gradient(180deg, color-mix(in oklab, var(--surface) 98%, var(--play-indigo) 2%), var(--canvas));
+    border: 1px solid var(--play-line);
+    box-shadow: 0 20px 60px -40px var(--play-glow);
+    overflow: hidden;
+  }
+
+  .play-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--play-cyan) 14%, transparent) 1px, transparent 0);
+    background-size: 18px 18px;
+    opacity: 0.18;
+    mask-image: radial-gradient(600px 220px at 50% 0, black, transparent);
+  }
+
+  .play-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .play-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--play-indigo-ink);
+  }
+
+  .play-kicker::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, var(--play-cyan), color-mix(in oklab, var(--play-cyan) 60%, transparent));
+    box-shadow: 0 0 0 6px var(--play-cyan-soft);
+  }
+
+  .play-card {
+    background: var(--play-card);
+    border: 1px solid var(--play-line);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .play-card-hover:hover {
+    box-shadow: 0 0 0 1px var(--play-glow), var(--shadow-md);
+    border-color: color-mix(in oklab, var(--play-cyan) 42%, var(--play-line));
+    transform: translateY(-2px);
+  }
+
+  .play-pill {
+    background: var(--play-cyan-soft);
+    color: var(--play-indigo-ink);
+  }
+
+  /* --- Choice cards (crear torneo) --- */
+  .choice {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--play-line);
+    background: var(--play-card);
+    padding: 1rem 1.125rem;
+    box-shadow: var(--shadow-sm);
+    transition:
+      box-shadow 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.08s ease,
+      background-color 0.18s ease;
+  }
+
+  .choice:hover:not(:has(:disabled)) {
+    box-shadow: 0 0 0 1px var(--play-glow), var(--shadow-md);
+    border-color: color-mix(in oklab, var(--play-cyan) 40%, var(--play-line));
+    transform: translateY(-1px);
+  }
+
+  .choice:has(:checked) {
+    border-color: color-mix(in oklab, var(--play-cyan) 48%, var(--play-line));
+    box-shadow: 0 0 0 1px var(--play-glow), var(--shadow-md);
+  }
+
+  .choice:has(:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .choice:active:not(:has(:disabled)) {
+    transform: translateY(-1px) scale(0.995);
+  }
+
+  .choice:has(:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .card-link {
@@ -1163,20 +1306,40 @@
     height: 2.25rem;
     flex: none;
     border-radius: 9999px;
-    background-color: var(--brand-soft);
-    color: var(--brand);
+    background: radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--play-cyan) 16%, transparent), transparent 70%),
+      color-mix(in oklab, var(--surface) 92%, var(--play-indigo) 10%);
+    color: var(--play-indigo-ink);
+    border: 1px solid color-mix(in oklab, var(--play-cyan) 32%, var(--play-line));
     font-size: 0.875rem;
     font-weight: 650;
     text-transform: uppercase;
+    box-shadow: 0 18px 60px -36px var(--play-glow);
   }
 
   .brand-icon {
+    position: relative;
     display: grid;
     flex: none;
     overflow: hidden;
     place-items: center;
-    background-color: var(--brand-soft);
-    box-shadow: var(--shadow-sm);
+    background: radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--play-cyan) 16%, transparent), transparent 70%),
+      color-mix(in oklab, var(--surface) 92%, var(--play-indigo) 8%);
+    border: 1px solid color-mix(in oklab, var(--play-cyan) 34%, var(--play-line));
+    box-shadow: 0 18px 60px -36px var(--play-glow), var(--shadow-sm);
+    isolation: isolate;
+  }
+
+  .brand-icon::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--play-cyan) 16%, transparent);
+  }
+
+  .brand-icon-image {
+    position: relative;
+    z-index: 1;
   }
 
   .brand-icon-sm {

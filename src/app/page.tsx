@@ -28,11 +28,11 @@ export default async function HomePage() {
         <AppHeader email={user.email} />
 
         <div className="page-wide">
-          <div className="mt-10">
-            <p className="eyebrow">Tus torneos</p>
-            <h1 className="h1 mt-2">Mundialito</h1>
-            <p className="lead mt-2 max-w-md">
-              Armá un torneo, pasá el link y mirá cómo votan tus amigos en vivo.
+          <div className="play-hero mt-8">
+            <p className="play-kicker">Partida lista</p>
+            <h1 className="h1 mt-3">Mundialito</h1>
+            <p className="lead mt-2 max-w-lg">
+              Armá un torneo, pasá el link y viví el pique con tus amigos en vivo.
             </p>
           </div>
 
@@ -62,12 +62,12 @@ export default async function HomePage() {
       <AppHeader email={user.email} />
 
       <div className="page-wide">
-        <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="play-hero mt-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="eyebrow">Tus torneos</p>
-            <h1 className="h1 mt-2">Mundialito</h1>
-            <p className="lead mt-2 max-w-md">
-              Armá un torneo, pasá el link y mirá cómo votan tus amigos en vivo.
+            <p className="play-kicker">Tus torneos</p>
+            <h1 className="h1 mt-3">Mundialito</h1>
+            <p className="lead mt-2 max-w-lg">
+              Armá un torneo, pasá el link y viví el pique con tus amigos en vivo.
             </p>
           </div>
 
@@ -91,11 +91,11 @@ export default async function HomePage() {
                   <Link
                     key={m.id}
                     href={`/mundialito/${m.id}`}
-                    className="card card-pad card-hover card-link"
+                    className="play-card play-card-hover card-pad card-link"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <h2 className="h3">{m.name}</h2>
-                      <span className={`pill ${status.pill}`}>
+                      <span className={`pill ${status.pill} play-pill`}>
                         <span className="dot" aria-hidden="true" />
                         {status.label}
                       </span>

@@ -81,7 +81,7 @@ export function EditMundialitoForm({
   }
 
   return (
-    <section className="card card-pad mt-6" aria-label="Detalles del torneo">
+    <section className="play-card card-pad mt-6" aria-label="Detalles del torneo">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="h3">Detalles del torneo</h2>

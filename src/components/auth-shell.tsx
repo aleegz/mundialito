@@ -24,7 +24,7 @@ export function AuthShell({
       {/* Halo de marca, puramente decorativo. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand-soft opacity-70 blur-3xl"
+        className="pointer-events-none absolute -top-24 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,var(--play-glow),transparent)] opacity-70 blur-3xl"
       />
 
       <div className="relative z-10 w-full max-w-[26rem]">
@@ -49,8 +49,9 @@ export function AuthShell({
           </span>
         </Link>
 
-        <div className="card card-pad sm:p-7">
-          <h1 className="h2">{title}</h1>
+        <div className="play-card card-pad sm:p-7">
+          <p className="play-kicker">Partida</p>
+          <h1 className="h2 mt-1">{title}</h1>
           <p className="lead mt-1.5 text-[0.9375rem]">{lead}</p>
           <div className="mt-6">{children}</div>
         </div>

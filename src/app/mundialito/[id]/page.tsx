@@ -146,16 +146,16 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         </Link>
 
         {/* Encabezado del torneo */}
-        <header className="owner-header mt-6">
-          <p className="eyebrow">{isOwner ? "Tu torneo" : "Torneo"}</p>
-          <h1 className="h1 mt-2">{mundialito.name}</h1>
+        <header className="play-hero mt-6">
+          <p className="play-kicker">{isOwner ? "Tu partida" : "Partida"}</p>
+          <h1 className="h1 mt-3">{mundialito.name}</h1>
 
           {mundialito.description ? (
             <p className="lead mt-2 max-w-2xl">{mundialito.description}</p>
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className={`pill ${status.pill}`}>
+            <span className={`pill ${status.pill} play-pill`}>
               <span className="dot" aria-hidden="true" />
               {status.label}
             </span>
@@ -169,28 +169,32 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         {/* Proximo paso: votar / ver resultados. Si el owner ya cerro la
             copa, el paso es compartirla (#12). */}
         {finishedCrucesOwner ? (
-          <CopyShareCta mundialitoId={id} />
+          <div className="mt-6">
+            <CopyShareCta mundialitoId={id} />
+          </div>
         ) : canVote || canVoteCruces ? (
-          <Link
-            href={`/vote/${id}`}
-            className="owner-next card card-pad card-hover card-link mt-6 flex items-center justify-between gap-4"
-          >
-            <span>
-              <span className="block font-semibold text-fg">
-                {mundialito.status === "FINISHED"
-                  ? "Ver los resultados"
-                  : "Ir a votar"}
+          <div className="mt-6">
+            <Link
+              href={`/vote/${id}`}
+              className="play-card play-card-hover card-pad card-link flex items-center justify-between gap-4"
+            >
+              <span>
+                <span className="block font-semibold text-fg">
+                  {mundialito.status === "FINISHED"
+                    ? "Ver los resultados"
+                    : "Ir a votar"}
+                </span>
+                <span className="hint">
+                  {mundialito.status === "FINISHED"
+                    ? "Ya está todo definido. Mirá cómo quedó."
+                    : "La votación está abierta: entrá y dejá tu voto."}
+                </span>
               </span>
-              <span className="hint">
-                {mundialito.status === "FINISHED"
-                  ? "Ya está todo definido. Mirá cómo quedó."
-                  : "La votación está abierta: entrá y dejá tu voto."}
+              <span aria-hidden="true" className="text-brand">
+                →
               </span>
-            </span>
-            <span aria-hidden="true" className="text-brand">
-              →
-            </span>
-          </Link>
+            </Link>
+          </div>
         ) : null}
 
         {/* "Sumate vos también" ya no existe: el owner se anota como
@@ -199,21 +203,25 @@ export default async function MundialitoPage({ params }: { params: Params }) {
         {/* Controles del organizador. El card lo pone cada componente:
             puede no haber ninguna accion (FINISHED) y entonces devuelve
             null, asi que envolverlo desde aca dejaba un card vacio. */}
-        {isOwner && isCruces ? (
-          <CrucesActions
-            mundialitoId={id}
-            status={mundialito.status}
-            itemsCount={items?.length ?? 0}
-            participantsCount={participants?.length ?? 0}
-            votedCount={votedCount}
-            eligibleCount={eligibleCount}
-            openMatchId={openMatch?.id ?? null}
-            hasPendingNext={hasPendingNext}
-          />
-        ) : null}
+        {(isOwner && isCruces) || (isOwner && !isCruces) ? (
+          <div className="mt-6 space-y-3">
+            {isOwner && isCruces ? (
+              <CrucesActions
+                mundialitoId={id}
+                status={mundialito.status}
+                itemsCount={items?.length ?? 0}
+                participantsCount={participants?.length ?? 0}
+                votedCount={votedCount}
+                eligibleCount={eligibleCount}
+                openMatchId={openMatch?.id ?? null}
+                hasPendingNext={hasPendingNext}
+              />
+            ) : null}
 
-        {isOwner && !isCruces ? (
-          <StatusActions mundialitoId={id} status={mundialito.status} />
+            {isOwner && !isCruces ? (
+              <StatusActions mundialitoId={id} status={mundialito.status} />
+            ) : null}
+          </div>
         ) : null}
 
         {/* Edicion (solo en borrador) */}
